@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Camera, X, Star, Trash2, LayoutGrid, Clock } from 'lucide-react'
+import { Camera, X, Star, Trash2, LayoutGrid, Clock, Check } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { useBonsaiStore } from '@/store/bonsaiStore'
@@ -43,7 +43,11 @@ export default function Gallery() {
   const [selected, setSelected] = useState<Photo | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [pendingPhoto, setPendingPhoto] = useState<{ b64: string; date: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const todayISO = new Date().toISOString().split('T')[0]
 
   async function loadPhotos() {
     if (!bonsaiId) return
@@ -62,16 +66,25 @@ export default function Gallery() {
     if (!file || !bonsaiId) return
     const quality = config?.photoQuality === 'low' ? 0.6 : config?.photoQuality === 'medium' ? 0.75 : 0.85
     const b64 = await compressImage(file, 1200, quality)
+    setPendingPhoto({ b64, date: todayISO })
+    e.target.value = ''
+  }
+
+  async function confirmPendingPhoto() {
+    if (!pendingPhoto || !bonsaiId) return
+    setSaving(true)
+    const takenAt = new Date(pendingPhoto.date + 'T12:00:00').getTime()
     const isFirst = photos.length === 0
     const photoId = await storageService.savePhoto({
-      bonsaiId, imageData: b64, takenAt: Date.now(),
+      bonsaiId, imageData: pendingPhoto.b64, takenAt,
       isMainPhoto: isFirst,
     })
     if (isFirst) {
       await updateBonsai(bonsaiId, { mainPhotoId: photoId })
     }
+    setPendingPhoto(null)
+    setSaving(false)
     await loadPhotos()
-    e.target.value = ''
   }
 
   async function handleSetMain(photo: Photo) {
@@ -178,9 +191,69 @@ export default function Gallery() {
         <Camera size={22} style={{ color: 'var(--green1)' }} />
       </button>
       <input
-        ref={fileInputRef} type="file" accept="image/*" capture="environment"
+        ref={fileInputRef} type="file" accept="image/*"
         className="hidden" onChange={onFileChange}
       />
+
+      {/* Modal confirmar foto + fecha */}
+      {pendingPhoto && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-end" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-full max-w-md rounded-t-3xl p-5 flex flex-col gap-4" style={{ background: 'var(--bg2)' }}>
+            <div className="flex items-center justify-between">
+              <p className="font-semibold" style={{ color: 'var(--text1)' }}>
+                {lang === 'es' ? 'Nueva foto' : 'New photo'}
+              </p>
+              <button onClick={() => setPendingPhoto(null)}>
+                <X size={20} style={{ color: 'var(--text3)' }} />
+              </button>
+            </div>
+
+            {/* Preview */}
+            <div className="overflow-hidden rounded-2xl" style={{ maxHeight: '40vh' }}>
+              <img
+                src={base64ToDataUrl(pendingPhoto.b64)}
+                alt=""
+                className="w-full object-cover"
+              />
+            </div>
+
+            {/* Date picker */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium" style={{ color: 'var(--text3)' }}>
+                {lang === 'es' ? 'Fecha de la foto' : 'Photo date'}
+              </label>
+              <input
+                type="date"
+                value={pendingPhoto.date}
+                max={todayISO}
+                onChange={(e) => setPendingPhoto({ ...pendingPhoto, date: e.target.value })}
+                className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+                style={{ background: 'var(--bg3)', color: 'var(--text1)', border: '1px solid var(--border)' }}
+              />
+            </div>
+
+            {/* Acciones */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPendingPhoto(null)}
+                className="flex-1 rounded-2xl py-3 text-sm font-medium"
+                style={{ background: 'var(--bg3)', color: 'var(--text2)' }}
+              >
+                {lang === 'es' ? 'Cancelar' : 'Cancel'}
+              </button>
+              <button
+                onClick={confirmPendingPhoto}
+                disabled={saving || !pendingPhoto.date}
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium disabled:opacity-50"
+                style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
+              >
+                <Check size={16} />
+                {lang === 'es' ? 'Guardar' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lightbox */}
       {selected && (

@@ -41,6 +41,7 @@ function AddBonsaiSheet({
 
   const [name, setName] = useState('')
   const [species, setSpecies] = useState('')
+  const [commonName, setCommonName] = useState('')
   const [status, setStatus] = useState<BonsaiStatus>('developing')
   const [style, setStyle] = useState<BonsaiStyle | ''>('')
   const [germinationYear, setGerminationYear] = useState('')
@@ -59,6 +60,7 @@ function AddBonsaiSheet({
       const id = await addBonsai({
         name: name.trim(),
         species: species.trim(),
+        commonName: commonName.trim() || undefined,
         status,
         style: style || undefined,
         germinationYear: germinationYear ? parseInt(germinationYear) : undefined,
@@ -151,6 +153,21 @@ function AddBonsaiSheet({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Common name */}
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
+              {lang === 'es' ? 'Nombre común (opcional)' : 'Common name (optional)'}
+            </label>
+            <input
+              type="text"
+              value={commonName}
+              onChange={(e) => setCommonName(e.target.value)}
+              placeholder={lang === 'es' ? 'Ej: Ficus, Olmo chino…' : 'E.g. Ficus, Chinese elm…'}
+              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              style={{ background: 'var(--card)', color: 'var(--text1)', border: '1px solid var(--border)' }}
+            />
           </div>
 
           {/* Status */}

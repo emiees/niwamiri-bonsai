@@ -410,7 +410,9 @@ export default function BonsaiDetail() {
       <Section icon={<span>📋</span>} title={t('bonsaiDetail.sections.summary')} defaultOpen>
         <div className="grid grid-cols-2 gap-0 px-4 py-3">
           {[
-            [lang === 'es' ? 'Especie' : 'Species', <em>{bonsai.species}</em>],
+            [lang === 'es' ? 'Especie' : 'Species', bonsai.commonName
+              ? <>{bonsai.commonName}<br /><em style={{ fontSize: '0.75rem', color: 'var(--text3)' }}>{bonsai.species}</em></>
+              : <em>{bonsai.species}</em>],
             [lang === 'es' ? 'Estilo' : 'Style', bonsai.style ? t(`style.${bonsai.style}`).split(' ')[0] : '—'],
             [lang === 'es' ? 'Tamaño' : 'Size', bonsai.size ? t(`size.${bonsai.size}`) : '—'],
             [lang === 'es' ? 'Origen' : 'Origin', bonsai.origin ? t(`origin.${bonsai.origin}`) : '—'],

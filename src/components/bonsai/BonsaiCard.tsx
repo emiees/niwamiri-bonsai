@@ -80,9 +80,14 @@ export default function BonsaiCard({ bonsai, hasPending, view, onClick }: Bonsai
           <span className="truncate text-sm font-semibold" style={{ color: 'var(--text1)' }}>
             {bonsai.name}
           </span>
-          <span className="truncate text-xs italic" style={{ color: 'var(--text3)' }}>
-            {bonsai.species}
+          <span className="truncate text-xs" style={{ color: 'var(--text3)' }}>
+            {bonsai.commonName ?? bonsai.species}
           </span>
+          {bonsai.commonName && (
+            <span className="truncate text-[11px] italic" style={{ color: 'var(--text3)' }}>
+              {bonsai.species}
+            </span>
+          )}
           {meta && (
             <span className="text-[11px]" style={{ color: 'var(--text3)' }}>{meta}</span>
           )}
@@ -102,9 +107,14 @@ export default function BonsaiCard({ bonsai, hasPending, view, onClick }: Bonsai
         <span className="truncate text-sm font-semibold leading-tight" style={{ color: 'var(--text1)' }}>
           {bonsai.name}
         </span>
-        <span className="truncate text-xs italic" style={{ color: 'var(--text3)' }}>
-          {bonsai.species}
+        <span className="truncate text-xs" style={{ color: 'var(--text3)' }}>
+          {bonsai.commonName ?? bonsai.species}
         </span>
+        {bonsai.commonName && (
+          <span className="truncate text-[11px] italic" style={{ color: 'var(--text3)' }}>
+            {bonsai.species}
+          </span>
+        )}
         {meta && (
           <span className="mt-0.5 text-[11px]" style={{ color: 'var(--text3)' }}>{meta}</span>
         )}

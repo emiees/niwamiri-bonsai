@@ -217,14 +217,17 @@ export default function Identify() {
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text3)' }}>
                     {t('identify.result')}
                   </p>
-                  <p className="text-xl font-bold italic" style={{ color: 'var(--text1)' }}>
-                    {result.species}
-                  </p>
                   {result.commonName && (
-                    <p className="text-sm font-medium" style={{ color: 'var(--text2)' }}>
+                    <p className="text-xl font-bold" style={{ color: 'var(--text1)' }}>
                       {result.commonName}
                     </p>
                   )}
+                  <p
+                    className={result.commonName ? 'text-sm italic' : 'text-xl font-bold italic'}
+                    style={{ color: result.commonName ? 'var(--text3)' : 'var(--text1)' }}
+                  >
+                    {result.species}
+                  </p>
                   <div className="mt-2 flex items-center gap-2">
                     <span className="text-xs" style={{ color: 'var(--text3)' }}>
                       {t('identify.confidence')}:
@@ -278,7 +281,10 @@ export default function Identify() {
               >
                 <CheckCircle2 size={20} />
                 <div>
-                  <p className="font-semibold">{result.species}</p>
+                  <p className="font-semibold">{result.commonName || result.species}</p>
+                  {result.commonName && (
+                    <p className="text-xs italic opacity-70">{result.species}</p>
+                  )}
                   <p className="text-xs opacity-80">
                     {lang === 'es'
                       ? 'Copiado — usá este nombre al crear un nuevo árbol'

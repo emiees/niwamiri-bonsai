@@ -43,7 +43,8 @@ export type NoteScope = 'species' | 'specimen' | 'care'
 export interface Bonsai {
   id: string // UUID
   name: string // Nombre/apodo del árbol
-  species: string // Nombre científico o común
+  species: string // Nombre científico
+  commonName?: string // Nombre común (ej: "Ficus", "Olmo chino")
   style?: BonsaiStyle
   acquisitionDate?: string // ISO date
   germinationYear?: number // Año estimado de germinación
