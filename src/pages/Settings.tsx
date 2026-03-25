@@ -131,8 +131,11 @@ function ApiKeyRow({
 
   return (
     <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-      <p className="mb-2 text-sm font-medium" style={{ color: 'var(--text1)' }}>
+      <p className="mb-0.5 text-sm font-medium" style={{ color: 'var(--text1)' }}>
         {t('settings.apiKey')}
+      </p>
+      <p className="mb-2 text-xs" style={{ color: 'var(--text3)' }}>
+        Ingresá o reemplazá tu clave y presioná Verificar para guardar
       </p>
       <div className="flex items-center gap-2">
         <div className="relative flex-1">

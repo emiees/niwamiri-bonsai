@@ -1,11 +1,18 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Camera, Upload, Loader2, CheckCircle2, X } from 'lucide-react'
+import { Camera, Upload, Loader2, CheckCircle2, X, Settings } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { useAppStore } from '@/store/appStore'
 import { createAIService } from '@/hooks/useAI'
 import { compressImage, base64ToDataUrl } from '@/utils/images'
+
+const PROVIDER_LABELS: Record<string, string> = {
+  gemini: 'Gemini',
+  openai: 'OpenAI',
+  claude: 'Claude',
+}
 
 type Result = {
   species: string
@@ -25,6 +32,7 @@ const CONFIDENCE_LABELS_EN = { high: 'High', medium: 'Medium', low: 'Low' }
 export default function Identify() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
+  const navigate = useNavigate()
   const config = useAppStore((s) => s.config)
 
   const [photo, setPhoto] = useState<string | null>(null)
@@ -74,14 +82,42 @@ export default function Identify() {
       <Header title={t('identify.title')} />
 
       <div className="flex flex-col items-center gap-5 px-4 py-4">
-        {!hasKey ? (
+        {/* Estado de conexión */}
+        {hasKey ? (
+          <div
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2"
+            style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)' }}
+          >
+            <CheckCircle2 size={14} color="#22c55e" />
+            <span className="text-xs font-medium" style={{ color: '#22c55e' }}>
+              {PROVIDER_LABELS[config?.aiProvider ?? 'gemini']} · {config?.aiModel ?? ''}
+            </span>
+            <button
+              onClick={() => navigate('/settings')}
+              className="ml-auto"
+              aria-label="Ir a Ajustes"
+            >
+              <Settings size={14} style={{ color: 'var(--text3)' }} />
+            </button>
+          </div>
+        ) : (
           <div
             className="w-full rounded-2xl p-5 text-center"
             style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
           >
-            <p className="text-sm" style={{ color: 'var(--text3)' }}>{t('identify.noKey')}</p>
+            <p className="mb-3 text-sm" style={{ color: 'var(--text3)' }}>{t('identify.noKey')}</p>
+            <button
+              onClick={() => navigate('/settings')}
+              className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold"
+              style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
+            >
+              <Settings size={13} />
+              {lang === 'es' ? 'Configurar en Ajustes' : 'Configure in Settings'}
+            </button>
           </div>
-        ) : (
+        )}
+
+        {hasKey && (
           <>
             {/* Photo area */}
             {!photo ? (
@@ -155,6 +191,14 @@ export default function Identify() {
                 style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444' }}
               >
                 <p className="text-sm" style={{ color: '#ef4444' }}>{error}</p>
+                <button
+                  onClick={() => navigate('/settings')}
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium"
+                  style={{ color: '#ef4444', textDecoration: 'underline' }}
+                >
+                  <Settings size={12} />
+                  {lang === 'es' ? 'Cambiar API key en Ajustes' : 'Change API key in Settings'}
+                </button>
               </div>
             )}
 

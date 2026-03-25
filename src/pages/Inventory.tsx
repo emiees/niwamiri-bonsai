@@ -103,7 +103,7 @@ function AddBonsaiSheet({
         </div>
 
         {/* Form */}
-        <div className="flex flex-col gap-4 overflow-y-auto px-5 pb-6">
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto px-5 pb-6">
           {/* Name */}
           <div>
             <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
@@ -182,20 +182,29 @@ function AddBonsaiSheet({
               {lang === 'es' ? 'Estilo (opcional)' : 'Style (optional)'}
             </label>
             <div className="flex flex-wrap gap-2">
-              {STYLES.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStyle(style === s ? '' : s)}
-                  className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium"
-                  style={{
-                    background: style === s ? 'var(--color-accent)' : 'var(--card)',
-                    color: style === s ? 'var(--green1)' : 'var(--text2)',
-                    border: `1px solid ${style === s ? 'var(--color-accent)' : 'var(--border)'}`,
-                  }}
-                >
-                  {t(`style.${s}`).split(' ')[0]}
-                </button>
-              ))}
+              {STYLES.map((s) => {
+                const fullLabel = t(`style.${s}`)
+                const parenIdx = fullLabel.indexOf(' (')
+                const jaName = parenIdx !== -1 ? fullLabel.slice(0, parenIdx) : fullLabel
+                const esName = parenIdx !== -1 ? fullLabel.slice(parenIdx + 2, -1) : null
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStyle(style === s ? '' : s)}
+                    className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium"
+                    style={{
+                      background: style === s ? 'var(--color-accent)' : 'var(--card)',
+                      color: style === s ? 'var(--green1)' : 'var(--text2)',
+                      border: `1px solid ${style === s ? 'var(--color-accent)' : 'var(--border)'}`,
+                    }}
+                  >
+                    <span className="block">{jaName}</span>
+                    {esName && (
+                      <span className="block text-[10px] italic opacity-60">{esName}</span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
 

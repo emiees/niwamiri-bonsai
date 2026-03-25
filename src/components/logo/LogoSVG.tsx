@@ -13,11 +13,11 @@ export default function LogoSVG({ size = 40, className }: LogoSVGProps) {
       className={className}
       aria-label="NiwaMirî"
     >
-      <circle cx="200" cy="200" r="190" fill="#2e7048" stroke="#1d5533" strokeWidth="2"/>
+      <rect width="400" height="400" rx="90" ry="90" fill="#2e7048" stroke="#1d5533" strokeWidth="2"/>
 
       <defs>
         <clipPath id="niwamiri-clip">
-          <circle cx="200" cy="200" r="188"/>
+          <rect width="400" height="400" rx="90" ry="90"/>
         </clipPath>
       </defs>
 
