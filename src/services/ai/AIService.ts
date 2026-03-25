@@ -17,6 +17,7 @@ export interface AIService {
   // Identificar especie por foto
   identifySpecies(imageBase64: string, lang?: string): Promise<{
     species: string
+    commonName: string
     confidence: 'high' | 'medium' | 'low'
     notes: string
   }>

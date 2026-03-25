@@ -45,7 +45,7 @@ export class ClaudeProvider implements AIService {
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
-          { type: 'text', text: `Identify this species. ${langInstruction} Respond ONLY in JSON: {"species":"...","confidence":"high|medium|low","notes":"..."}` },
+          { type: 'text', text: `Identify this species. ${langInstruction} Respond ONLY in JSON: {"species":"scientific latin name","commonName":"most common local name","confidence":"high|medium|low","notes":"..."}` },
         ],
       },
     ])

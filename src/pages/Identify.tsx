@@ -16,6 +16,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 
 type Result = {
   species: string
+  commonName: string
   confidence: 'high' | 'medium' | 'low'
   notes: string
 }
@@ -219,6 +220,11 @@ export default function Identify() {
                   <p className="text-xl font-bold italic" style={{ color: 'var(--text1)' }}>
                     {result.species}
                   </p>
+                  {result.commonName && (
+                    <p className="text-sm font-medium" style={{ color: 'var(--text2)' }}>
+                      {result.commonName}
+                    </p>
+                  )}
                   <div className="mt-2 flex items-center gap-2">
                     <span className="text-xs" style={{ color: 'var(--text3)' }}>
                       {t('identify.confidence')}:

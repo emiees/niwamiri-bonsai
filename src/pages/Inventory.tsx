@@ -79,12 +79,12 @@ function AddBonsaiSheet({
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="fixed inset-0 z-[55] bg-black/50"
         onClick={onClose}
       />
       {/* Sheet */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-3xl"
+        className="fixed bottom-0 left-0 right-0 z-[60] flex flex-col rounded-t-3xl"
         style={{ background: 'var(--bg)', maxHeight: '90dvh' }}
       >
         {/* Handle */}

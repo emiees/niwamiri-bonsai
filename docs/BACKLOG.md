@@ -30,7 +30,7 @@ Cada ítem incluye fecha de apertura, estado, prioridad y fecha de resolución.
 | B001 | Botón "Agregar árbol" queda fuera de pantalla en sheet nuevo bonsai | M2 Inventario | P1 | `resuelto` | 2026-03-25 | 2026-03-25 | Fix anterior (a28e344) no resolvió. Solución: botón movido fuera del área scrollable a un footer fijo con `shrink-0` y `padding-bottom: max(1.5rem, safe-area-inset-bottom)`. |
 | B002 | PWA manifest start_url y scope incorrectos para subdirectorio de GitHub Pages | PWA | P2 | `resuelto` | — | 2026-03-24 | Fix en commit 03d3c44 |
 | B003 | Identificar devuelve error de API Key — modelos Gemini 1.5 deprecados | M10 Identificar | P1 | `resuelto` | 2026-03-25 | 2026-03-25 | El modelo default `gemini-1.5-flash` y todo el listado 1.5/2.0 están deprecados. Se actualizó default a `gemini-2.5-flash` y opciones a 2.5 Flash, 2.5 Pro y 3 Flash Preview. Además se expone el error real de la API en la UI para futuros debug. |
-| B004 | Identificar responde en inglés sin respetar el idioma configurado en la app | M10 Identificar | P1 | `en progreso` | 2026-03-25 | — | El prompt de `identifySpecies` no indica idioma. La respuesta (notas) debe venir en el idioma activo del usuario. |
+| B004 | Identificar responde en inglés sin respetar el idioma configurado en la app | M10 Identificar | P1 | `resuelto` | 2026-03-25 | 2026-03-25 | Se agregó parámetro `lang` a `identifySpecies` en la interfaz y los 3 providers. El nombre científico permanece en latín. |
 
 ---
 

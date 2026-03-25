@@ -42,7 +42,7 @@ export class GeminiProvider implements AIService {
       ? 'Respond in Spanish (except the species scientific name, which must stay in Latin).'
       : 'Respond in English.'
     const prompt = `You are a bonsai expert. Identify the plant species in this image. ${langInstruction}
-Respond ONLY in JSON format: {"species": "...", "confidence": "high|medium|low", "notes": "..."}`
+Respond ONLY in JSON format: {"species": "scientific latin name", "commonName": "most common local name", "confidence": "high|medium|low", "notes": "..."}`
     const text = await this.generateContent(prompt, imageBase64)
     const json = JSON.parse(text.replace(/```json\n?|\n?```/g, ''))
     return json

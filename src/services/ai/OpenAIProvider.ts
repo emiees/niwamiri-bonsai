@@ -39,7 +39,7 @@ export class OpenAIProvider implements AIService {
           { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
           {
             type: 'text',
-            text: `Identify the bonsai/plant species. ${langInstruction} Respond ONLY in JSON: {"species": "...", "confidence": "high|medium|low", "notes": "..."}`,
+            text: `Identify the bonsai/plant species. ${langInstruction} Respond ONLY in JSON: {"species": "scientific latin name", "commonName": "most common local name", "confidence": "high|medium|low", "notes": "..."}`,
           },
         ],
       },
