@@ -59,10 +59,14 @@ export default function Identify() {
       const svc = await createAIService(config.encryptedApiKey, config.aiProvider, config.aiModel)
       const res = await svc.identifySpecies(photo)
       setResult(res)
-    } catch {
-      setError(lang === 'es'
-        ? 'Error al identificar. Verificá tu API key y que el proveedor soporta visión.'
-        : 'Identification error. Check your API key and that the provider supports vision.')
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err)
+      setError(
+        (lang === 'es'
+          ? 'Error al identificar. Verificá tu API key y que el proveedor soporta visión.'
+          : 'Identification error. Check your API key and that the provider supports vision.')
+        + `\n\nDetalle: ${detail}`
+      )
     } finally {
       setAnalyzing(false)
     }

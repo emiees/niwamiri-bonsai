@@ -84,7 +84,7 @@ function AddBonsaiSheet({
       />
       {/* Sheet */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-3xl pb-safe"
+        className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-3xl"
         style={{ background: 'var(--bg)', maxHeight: '90dvh' }}
       >
         {/* Handle */}
@@ -103,7 +103,7 @@ function AddBonsaiSheet({
         </div>
 
         {/* Form */}
-        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto px-5 pb-6">
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto px-5 pb-4">
           {/* Name */}
           <div>
             <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
@@ -225,7 +225,10 @@ function AddBonsaiSheet({
             />
           </div>
 
-          {/* Save */}
+        </div>
+
+        {/* Footer con botón siempre visible */}
+        <div className="shrink-0 px-5 pt-2" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
           <button
             onClick={save}
             disabled={!name.trim() || !species.trim() || saving}
@@ -338,7 +341,7 @@ export default function Inventory() {
 
       {/* Species filter chips */}
       {speciesOptions.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto px-4 py-2 scrollbar-none">
+        <div className="flex gap-2 overflow-x-auto px-4 pt-3 pb-2 scrollbar-none">
           <button
             onClick={() => setSelectedSpecies([])}
             className="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium"

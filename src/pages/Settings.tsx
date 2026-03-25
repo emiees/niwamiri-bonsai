@@ -64,16 +64,16 @@ function RowLabel({ label, sublabel }: { label: string; sublabel?: string }) {
 // ── Model options per provider ─────────────────────────────────
 
 const PROVIDER_MODEL_DEFAULTS: Record<AIProvider, string> = {
-  gemini: 'gemini-1.5-flash',
+  gemini: 'gemini-2.5-flash',
   openai: 'gpt-4o-mini',
   claude: 'claude-haiku-4-5-20251001',
 }
 
 const PROVIDER_MODEL_OPTIONS: Record<AIProvider, { value: string; label: string }[]> = {
   gemini: [
-    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-    { value: 'gemini-1.5-pro',   label: 'Gemini 1.5 Pro'   },
-    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    { value: 'gemini-2.5-flash',          label: 'Gemini 2.5 Flash (recomendado)' },
+    { value: 'gemini-2.5-pro',            label: 'Gemini 2.5 Pro'                 },
+    { value: 'gemini-3-flash-preview',    label: 'Gemini 3 Flash Preview'         },
   ],
   openai: [
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },

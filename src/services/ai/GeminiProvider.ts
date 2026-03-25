@@ -7,7 +7,7 @@ export class GeminiProvider implements AIService {
   private apiKey: string
   private model: string
 
-  constructor(apiKey: string, model = 'gemini-1.5-flash') {
+  constructor(apiKey: string, model = 'gemini-2.5-flash') {
     this.apiKey = apiKey
     this.model = model
   }
@@ -29,7 +29,10 @@ export class GeminiProvider implements AIService {
       }
     )
 
-    if (!res.ok) throw new Error(`Gemini API error: ${res.status}`)
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`Gemini ${res.status}: ${body}`)
+    }
     const data = await res.json()
     return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
   }
@@ -92,7 +95,10 @@ Respond in Spanish. Be helpful and concise.`
       }
     )
 
-    if (!res.ok) throw new Error(`Gemini API error: ${res.status}`)
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`Gemini ${res.status}: ${body}`)
+    }
     const data = await res.json()
     return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
   }
