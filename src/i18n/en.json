@@ -1,0 +1,218 @@
+{
+  "nav": {
+    "inventory": "Collection",
+    "calendar": "Calendar",
+    "identify": "Identify",
+    "settings": "Settings"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "back": "Back",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Saved",
+    "confirm": "Confirm",
+    "search": "Search...",
+    "noResults": "No results",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "status": {
+    "developing": "Developing",
+    "maintenance": "Maintenance",
+    "recovery": "Recovery",
+    "donated": "Donated",
+    "dead": "Dead"
+  },
+  "size": {
+    "mame": "Mame",
+    "shohin": "Shohin",
+    "chuhin": "Chuhin",
+    "dai": "Dai"
+  },
+  "style": {
+    "chokkan": "Chokkan (formal upright)",
+    "moyogi": "Moyogi (informal upright)",
+    "shakan": "Shakan (slanting)",
+    "kengai": "Kengai (cascade)",
+    "han-kengai": "Han-kengai (semi-cascade)",
+    "hokidachi": "Hokidachi (broom)",
+    "fukinagashi": "Fukinagashi (windswept)",
+    "yose-ue": "Yose-ue (forest)",
+    "literati": "Literati (bunjin)",
+    "other": "Other"
+  },
+  "origin": {
+    "prebonsai": "Pre-bonsai",
+    "yamadori": "Yamadori",
+    "seed": "Seed",
+    "cutting": "Cutting",
+    "gift": "Gift",
+    "purchase": "Purchase"
+  },
+  "care": {
+    "watering": "Watering",
+    "fertilizing": "Fertilizing",
+    "maintenance-pruning": "Maintenance pruning",
+    "structural-pruning": "Structural pruning",
+    "wiring": "Wiring",
+    "wire-removal": "Wire removal",
+    "repotting": "Repotting",
+    "root-pruning": "Root pruning",
+    "defoliation": "Defoliation",
+    "pest-treatment": "Pest treatment",
+    "jin-shari": "Jin / Shari",
+    "relocation": "Relocation",
+    "observation": "Observation",
+    "other": "Other"
+  },
+  "condition": {
+    "good": "Good",
+    "regular": "Regular",
+    "problematic": "Problematic"
+  },
+  "season": {
+    "spring": "Spring",
+    "summer": "Summer",
+    "autumn": "Autumn",
+    "winter": "Winter"
+  },
+  "inventory": {
+    "title": "My Collection",
+    "empty": "No trees yet",
+    "addFirst": "Add your first bonsai",
+    "addNew": "New bonsai",
+    "filterAll": "All",
+    "pendingCares": "Pending cares"
+  },
+  "bonsaiDetail": {
+    "sections": {
+      "summary": "Summary",
+      "cares": "Care log",
+      "gallery": "Gallery",
+      "notes": "Class notes",
+      "speciesSheet": "Species sheet",
+      "aiAssistant": "AI Assistant"
+    },
+    "addCare": "Log care",
+    "lastCare": "Last care",
+    "noCares": "No care records",
+    "age": "Estimated age"
+  },
+  "careForm": {
+    "title": "Log care",
+    "editTitle": "Edit care",
+    "type": "Care type",
+    "date": "Date",
+    "condition": "Tree condition",
+    "description": "Notes",
+    "photos": "Photos",
+    "reminder": "Follow-up reminder",
+    "suggestReminder": "Suggest with AI",
+    "aiNotes": "Relevant notes",
+    "aiNotesEmpty": "No class notes for this species and care type."
+  },
+  "onboarding": {
+    "step1": {
+      "title": "Welcome to NiwaMirî",
+      "subtitle": "Your small garden, always in your pocket."
+    },
+    "step2": {
+      "title": "Choose your AI assistant",
+      "subtitle": "Connect your own API key to enable AI features."
+    },
+    "step3": {
+      "title": "Get your API key",
+      "subtitle": "Follow the instructions to get your free Gemini key."
+    },
+    "step4": {
+      "title": "Verify connection",
+      "subtitle": "Enter your API key to confirm everything works."
+    },
+    "next": "Next",
+    "finish": "Get started",
+    "skip": "Skip"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "hemisphere": "Hemisphere",
+    "aiProvider": "AI Provider",
+    "aiModel": "Model",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Enter your API key",
+    "photoQuality": "Photo quality",
+    "notifications": "Push notifications",
+    "fontSize": "Font size",
+    "backup": "Backup & restore",
+    "themes": {
+      "dark": "Dark",
+      "light": "Light"
+    },
+    "hemispheres": {
+      "north": "North",
+      "south": "South"
+    },
+    "fontSizes": {
+      "normal": "Normal",
+      "large": "Large"
+    },
+    "photoQualities": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "monthView": "Month",
+    "listView": "List",
+    "next30days": "Next 30 days",
+    "noEvents": "No events in this period",
+    "markDone": "Mark as done",
+    "eventTypes": {
+      "care": "Care",
+      "manual-reminder": "Reminder",
+      "followup-reminder": "Follow-up",
+      "ai-suggestion": "AI Suggestion"
+    }
+  },
+  "identify": {
+    "title": "Identify species",
+    "upload": "Upload photo",
+    "take": "Take photo",
+    "analyzing": "Analyzing...",
+    "result": "Result",
+    "confidence": "Confidence",
+    "useSpecies": "Use this species",
+    "noKey": "Configure your API key in Settings to use this feature."
+  },
+  "backup": {
+    "title": "Backup",
+    "export": "Export data",
+    "import": "Import data",
+    "replace": "Replace all",
+    "merge": "Merge",
+    "exportSuccess": "Backup exported",
+    "importSuccess": "Data imported",
+    "importWarning": "Replace mode will delete all current data. Confirm?"
+  },
+  "ai": {
+    "thinking": "Thinking...",
+    "error": "Error connecting to AI",
+    "noKey": "Configure your API key to use the assistant.",
+    "placeholder": "Ask anything about this tree..."
+  },
+  "sheetOrigin": {
+    "local-db": "Local database",
+    "ai-generated": "AI generated",
+    "edited": "Edited",
+    "manual": "Manual"
+  }
+}

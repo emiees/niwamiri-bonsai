@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* ── shadcn/ui CSS variables (Tailwind v3 compatible) ───────── */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 142 46% 31%;
+    --primary-foreground: 138 100% 97%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 142 46% 31%;
+    --accent-foreground: 138 100% 97%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 142 46% 31%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 142 35% 8%;
+    --foreground: 138 30% 95%;
+    --card: 143 23% 12%;
+    --card-foreground: 138 30% 95%;
+    --popover: 143 23% 12%;
+    --popover-foreground: 138 30% 95%;
+    --primary: 142 40% 47%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 143 20% 15%;
+    --secondary-foreground: 138 30% 95%;
+    --muted: 143 20% 15%;
+    --muted-foreground: 138 18% 54%;
+    --accent: 143 20% 15%;
+    --accent-foreground: 138 30% 95%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 143 10% 15%;
+    --input: 143 10% 15%;
+    --ring: 142 40% 47%;
+  }
+}
+
+/* ── Design tokens — Dark mode (default) ───────────────────── */
+:root {
+  /* Font scale */
+  --font-scale: 1;
+
+  /* Green palette */
+  --color-green1: #0f2e1c;
+  --color-green2: #1a4a2e;
+  --color-green3: #2e7048;
+  --color-green4: #3d9060;
+  --color-green5: #6ec48a;
+  --color-green6: #b8dcc8;
+  --color-accent:  #4ab87a;
+
+  /* Semantic */
+  --color-warn: #e07840;
+  --color-gold: #c8a84a;
+  --color-ai:   #7a6ec4;
+
+  /* Dark surfaces */
+  --bg:      #0e1a13;
+  --bg2:     #141f18;
+  --bg3:     #1c2b21;
+  --card:    #1a2820;
+  --card2:   #213328;
+  --border:  rgba(255, 255, 255, 0.07);
+  --border2: rgba(255, 255, 255, 0.12);
+  --text1:   #eef4f0;
+  --text2:   #8aaa96;
+  --text3:   #4a6a56;
+  --nav:     #111d16;
+}
+
+/* ── Light mode ─────────────────────────────────────────────── */
+.light {
+  --bg:      #efede8;
+  --bg2:     #e8e5df;
+  --bg3:     #f5f3ef;
+  --card:    #ffffff;
+  --card2:   #f7f5f1;
+  --border:  rgba(0, 0, 0, 0.07);
+  --border2: rgba(0, 0, 0, 0.12);
+  --text1:   #1a1a1a;
+  --text2:   #6a7a6e;
+  --text3:   #aab8b0;
+  --nav:     #ffffff;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  background-color: var(--bg);
+  color: var(--text1);
+}
+
+body {
+  min-height: 100%;
+  font-family: 'DM Sans', sans-serif;
+  background-color: var(--bg);
+  color: var(--text1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+/* ── Font scale utilities ───────────────────────────────────── */
+.text-xs-scaled  { font-size: calc(0.75rem  * var(--font-scale)); }
+.text-sm-scaled  { font-size: calc(0.875rem * var(--font-scale)); }
+.text-base-scaled{ font-size: calc(1rem     * var(--font-scale)); }
+.text-lg-scaled  { font-size: calc(1.125rem * var(--font-scale)); }
+.text-xl-scaled  { font-size: calc(1.25rem  * var(--font-scale)); }
+.text-2xl-scaled { font-size: calc(1.5rem   * var(--font-scale)); }
+
+/* Large font mode */
+.font-large {
+  --font-scale: 1.2;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }

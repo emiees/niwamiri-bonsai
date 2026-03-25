@@ -1,0 +1,218 @@
+{
+  "nav": {
+    "inventory": "Colección",
+    "calendar": "Calendario",
+    "identify": "Identificar",
+    "settings": "Ajustes"
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "close": "Cerrar",
+    "back": "Volver",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Guardado",
+    "confirm": "Confirmar",
+    "search": "Buscar...",
+    "noResults": "Sin resultados",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "status": {
+    "developing": "En desarrollo",
+    "maintenance": "Mantenimiento",
+    "recovery": "Recuperación",
+    "donated": "Donado",
+    "dead": "Fallecido"
+  },
+  "size": {
+    "mame": "Mame",
+    "shohin": "Shohin",
+    "chuhin": "Chuhin",
+    "dai": "Dai"
+  },
+  "style": {
+    "chokkan": "Chokkan (formal erecto)",
+    "moyogi": "Moyogi (informal erecto)",
+    "shakan": "Shakan (inclinado)",
+    "kengai": "Kengai (cascada)",
+    "han-kengai": "Han-kengai (semi-cascada)",
+    "hokidachi": "Hokidachi (escoba)",
+    "fukinagashi": "Fukinagashi (azotado por el viento)",
+    "yose-ue": "Yose-ue (bosque)",
+    "literati": "Literati (bunjin)",
+    "other": "Otro"
+  },
+  "origin": {
+    "prebonsai": "Pre-bonsai",
+    "yamadori": "Yamadori",
+    "seed": "Semilla",
+    "cutting": "Estaca",
+    "gift": "Regalo",
+    "purchase": "Compra"
+  },
+  "care": {
+    "watering": "Riego",
+    "fertilizing": "Fertilización",
+    "maintenance-pruning": "Poda de mantenimiento",
+    "structural-pruning": "Poda estructural",
+    "wiring": "Alambrado",
+    "wire-removal": "Retiro de alambre",
+    "repotting": "Trasplante",
+    "root-pruning": "Poda de raíces",
+    "defoliation": "Defoliación",
+    "pest-treatment": "Tratamiento de plagas",
+    "jin-shari": "Jin / Shari",
+    "relocation": "Reubicación",
+    "observation": "Observación",
+    "other": "Otro"
+  },
+  "condition": {
+    "good": "Bien",
+    "regular": "Regular",
+    "problematic": "Problemático"
+  },
+  "season": {
+    "spring": "Primavera",
+    "summer": "Verano",
+    "autumn": "Otoño",
+    "winter": "Invierno"
+  },
+  "inventory": {
+    "title": "Mi Colección",
+    "empty": "No tenés árboles aún",
+    "addFirst": "Agregá tu primer bonsai",
+    "addNew": "Nuevo bonsai",
+    "filterAll": "Todos",
+    "pendingCares": "Cuidados pendientes"
+  },
+  "bonsaiDetail": {
+    "sections": {
+      "summary": "Resumen",
+      "cares": "Cuidados",
+      "gallery": "Galería",
+      "notes": "Notas de clase",
+      "speciesSheet": "Ficha técnica",
+      "aiAssistant": "Asistente IA"
+    },
+    "addCare": "Registrar cuidado",
+    "lastCare": "Último cuidado",
+    "noCares": "Sin cuidados registrados",
+    "age": "Edad estimada"
+  },
+  "careForm": {
+    "title": "Registrar cuidado",
+    "editTitle": "Editar cuidado",
+    "type": "Tipo de cuidado",
+    "date": "Fecha",
+    "condition": "Estado del árbol",
+    "description": "Observaciones",
+    "photos": "Fotos",
+    "reminder": "Recordatorio de seguimiento",
+    "suggestReminder": "Sugerir con IA",
+    "aiNotes": "Notas relevantes",
+    "aiNotesEmpty": "No hay notas de clase para esta especie y tipo de cuidado."
+  },
+  "onboarding": {
+    "step1": {
+      "title": "Bienvenido a NiwaMirî",
+      "subtitle": "Tu jardín pequeño, siempre en tu bolsillo."
+    },
+    "step2": {
+      "title": "Elegí tu asistente IA",
+      "subtitle": "Conectá tu propia API key para activar las funciones de inteligencia artificial."
+    },
+    "step3": {
+      "title": "Obtené tu API key",
+      "subtitle": "Seguí las instrucciones para obtener tu clave gratuita de Gemini."
+    },
+    "step4": {
+      "title": "Verificar conexión",
+      "subtitle": "Ingresá tu API key para confirmar que todo funciona."
+    },
+    "next": "Siguiente",
+    "finish": "Comenzar",
+    "skip": "Omitir"
+  },
+  "settings": {
+    "title": "Ajustes",
+    "language": "Idioma",
+    "theme": "Tema",
+    "hemisphere": "Hemisferio",
+    "aiProvider": "Proveedor IA",
+    "aiModel": "Modelo",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Ingresá tu API key",
+    "photoQuality": "Calidad de fotos",
+    "notifications": "Notificaciones push",
+    "fontSize": "Tamaño de texto",
+    "backup": "Backup y restauración",
+    "themes": {
+      "dark": "Oscuro",
+      "light": "Claro"
+    },
+    "hemispheres": {
+      "north": "Norte",
+      "south": "Sur"
+    },
+    "fontSizes": {
+      "normal": "Normal",
+      "large": "Grande"
+    },
+    "photoQualities": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja"
+    }
+  },
+  "calendar": {
+    "title": "Calendario",
+    "monthView": "Mes",
+    "listView": "Lista",
+    "next30days": "Próximos 30 días",
+    "noEvents": "Sin eventos en este período",
+    "markDone": "Marcar como hecho",
+    "eventTypes": {
+      "care": "Cuidado",
+      "manual-reminder": "Recordatorio",
+      "followup-reminder": "Seguimiento",
+      "ai-suggestion": "Sugerencia IA"
+    }
+  },
+  "identify": {
+    "title": "Identificar especie",
+    "upload": "Subir foto",
+    "take": "Tomar foto",
+    "analyzing": "Analizando...",
+    "result": "Resultado",
+    "confidence": "Confianza",
+    "useSpecies": "Usar esta especie",
+    "noKey": "Configurá tu API key en Ajustes para usar esta función."
+  },
+  "backup": {
+    "title": "Backup",
+    "export": "Exportar datos",
+    "import": "Importar datos",
+    "replace": "Reemplazar todo",
+    "merge": "Fusionar",
+    "exportSuccess": "Backup exportado",
+    "importSuccess": "Datos importados",
+    "importWarning": "El modo Reemplazar borrará todos los datos actuales. ¿Confirmar?"
+  },
+  "ai": {
+    "thinking": "Pensando...",
+    "error": "Error al conectar con la IA",
+    "noKey": "Configurá tu API key para usar el asistente.",
+    "placeholder": "Escribí tu consulta sobre este árbol..."
+  },
+  "sheetOrigin": {
+    "local-db": "Base local",
+    "ai-generated": "Generada por IA",
+    "edited": "Editada",
+    "manual": "Manual"
+  }
+}

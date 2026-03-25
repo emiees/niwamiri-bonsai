@@ -1,0 +1,20 @@
+// Re-export all types from db schema for convenience
+export type {
+  Bonsai,
+  BonsaiStatus,
+  BonsaiStyle,
+  BonsaiSize,
+  BonsaiOrigin,
+  Care,
+  CareType,
+  TreeCondition,
+  Photo,
+  ClassNote,
+  SpeciesSheet,
+  SheetOrigin,
+  NoteScope,
+  CalendarEvent,
+  AIConversation,
+  AIProvider,
+  AppConfig,
+} from '../db/schema'
