@@ -37,8 +37,11 @@ export class GeminiProvider implements AIService {
     return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
   }
 
-  async identifySpecies(imageBase64: string) {
-    const prompt = `You are a bonsai expert. Identify the plant species in this image.
+  async identifySpecies(imageBase64: string, lang = 'es') {
+    const langInstruction = lang === 'es'
+      ? 'Respond in Spanish (except the species scientific name, which must stay in Latin).'
+      : 'Respond in English.'
+    const prompt = `You are a bonsai expert. Identify the plant species in this image. ${langInstruction}
 Respond ONLY in JSON format: {"species": "...", "confidence": "high|medium|low", "notes": "..."}`
     const text = await this.generateContent(prompt, imageBase64)
     const json = JSON.parse(text.replace(/```json\n?|\n?```/g, ''))

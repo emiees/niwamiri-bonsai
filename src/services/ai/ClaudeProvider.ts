@@ -36,13 +36,16 @@ export class ClaudeProvider implements AIService {
     return data.content?.[0]?.text ?? ''
   }
 
-  async identifySpecies(imageBase64: string) {
+  async identifySpecies(imageBase64: string, lang = 'es') {
+    const langInstruction = lang === 'es'
+      ? 'Respond in Spanish (except the species scientific name, which must stay in Latin).'
+      : 'Respond in English.'
     const text = await this.complete('You are a bonsai expert. Identify plant species from images.', [
       {
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
-          { type: 'text', text: 'Identify this species. Respond ONLY in JSON: {"species":"...","confidence":"high|medium|low","notes":"..."}' },
+          { type: 'text', text: `Identify this species. ${langInstruction} Respond ONLY in JSON: {"species":"...","confidence":"high|medium|low","notes":"..."}` },
         ],
       },
     ])

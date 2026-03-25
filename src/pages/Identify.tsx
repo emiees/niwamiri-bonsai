@@ -57,7 +57,7 @@ export default function Identify() {
     setError(null)
     try {
       const svc = await createAIService(config.encryptedApiKey, config.aiProvider, config.aiModel)
-      const res = await svc.identifySpecies(photo)
+      const res = await svc.identifySpecies(photo, lang)
       setResult(res)
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)

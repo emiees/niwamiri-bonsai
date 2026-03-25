@@ -15,7 +15,7 @@ export interface BonsaiContext {
 
 export interface AIService {
   // Identificar especie por foto
-  identifySpecies(imageBase64: string): Promise<{
+  identifySpecies(imageBase64: string, lang?: string): Promise<{
     species: string
     confidence: 'high' | 'medium' | 'low'
     notes: string

@@ -28,7 +28,10 @@ export class OpenAIProvider implements AIService {
     return data.choices?.[0]?.message?.content ?? ''
   }
 
-  async identifySpecies(imageBase64: string) {
+  async identifySpecies(imageBase64: string, lang = 'es') {
+    const langInstruction = lang === 'es'
+      ? 'Respond in Spanish (except the species scientific name, which must stay in Latin).'
+      : 'Respond in English.'
     const text = await this.complete([
       {
         role: 'user',
@@ -36,7 +39,7 @@ export class OpenAIProvider implements AIService {
           { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
           {
             type: 'text',
-            text: 'Identify the bonsai/plant species. Respond ONLY in JSON: {"species": "...", "confidence": "high|medium|low", "notes": "..."}',
+            text: `Identify the bonsai/plant species. ${langInstruction} Respond ONLY in JSON: {"species": "...", "confidence": "high|medium|low", "notes": "..."}`,
           },
         ],
       },
