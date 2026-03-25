@@ -375,7 +375,7 @@ export default function Inventory() {
       )}
 
       {/* Season + pending row */}
-      <div className="flex items-center gap-2 px-4 pb-2">
+      <div className="flex items-center gap-2 px-4 pt-3 pb-2">
         {seasonChip}
         {pendingCount > 0 && (
           <span
