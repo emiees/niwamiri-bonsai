@@ -72,6 +72,7 @@ Cada ítem incluye fecha de apertura, estado, prioridad y fecha de resolución.
 | N001 | M13 — Bitácora de Conocimiento | M13 (nuevo) | P2 | `resuelto` | 2026-03-25 | 2026-03-26 | CRUD de notas con búsqueda, filtro por tags, fotos múltiples, FAB. Tabla `journalNotes` en Dexie v2. |
 | N002 | M14 — Asistente IA General | M14 (nuevo) | P2 | `resuelto` | 2026-03-25 | 2026-03-26 | Chat con contexto de colección completa. Ruta `/assistant`. Conversación persistida (`bonsaiId = 'general'`). Fix galería + placeholder aplicados en el mismo commit. |
 | N003 | Reorganización BottomNav — 4 tabs + ⚙️ en header | UI global | P2 | `resuelto` | 2026-03-25 | 2026-03-26 | BottomNav: Colección · Bitácora · Asistente · Calendario. Ajustes en ⚙️ en header de Inventario. |
+| N004 | Acceso a Identificar desde FAB expandible + pre-relleno del formulario | M2 Inventario / M10 Identificar | P2 | `en revisión` | 2026-03-26 | — | FAB "+" se expande en 2 opciones: "Nuevo bonsai" y "Identificar con IA". Desde Identificar, "Usar esta especie" navega a `/` con `state { prefillSpecies, prefillCommonName }`. Inventory detecta el state al montar y abre AddBonsaiSheet con especie y nombre común pre-cargados. |
 
 ---
 

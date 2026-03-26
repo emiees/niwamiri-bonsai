@@ -40,7 +40,6 @@ export default function Identify() {
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [accepted, setAccepted] = useState(false)
   const cameraRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
 
@@ -49,7 +48,6 @@ export default function Identify() {
     setPhoto(b64)
     setResult(null)
     setError(null)
-    setAccepted(false)
   }
 
   async function analyze() {
@@ -77,7 +75,6 @@ export default function Identify() {
     setPhoto(null)
     setResult(null)
     setError(null)
-    setAccepted(false)
   }
 
   const hasKey = !!config?.encryptedApiKey
@@ -208,7 +205,7 @@ export default function Identify() {
             )}
 
             {/* Result */}
-            {result && !accepted && (
+            {result && (
               <div
                 className="w-full overflow-hidden rounded-2xl"
                 style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
@@ -262,7 +259,12 @@ export default function Identify() {
                     {lang === 'es' ? 'Descartar' : 'Discard'}
                   </button>
                   <button
-                    onClick={() => setAccepted(true)}
+                    onClick={() => navigate('/', {
+                      state: {
+                        prefillSpecies: result.species,
+                        prefillCommonName: result.commonName || undefined,
+                      },
+                    })}
                     className="flex flex-1 items-center justify-center gap-1.5 py-3 text-sm font-semibold"
                     style={{ color: 'var(--color-accent)' }}
                   >
@@ -273,26 +275,6 @@ export default function Identify() {
               </div>
             )}
 
-            {/* Accepted state */}
-            {accepted && result && (
-              <div
-                className="flex w-full items-center gap-3 rounded-2xl px-4 py-4"
-                style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
-              >
-                <CheckCircle2 size={20} />
-                <div>
-                  <p className="font-semibold">{result.commonName || result.species}</p>
-                  {result.commonName && (
-                    <p className="text-xs italic opacity-70">{result.species}</p>
-                  )}
-                  <p className="text-xs opacity-80">
-                    {lang === 'es'
-                      ? 'Copiado — usá este nombre al crear un nuevo árbol'
-                      : 'Copied — use this name when creating a new tree'}
-                  </p>
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>

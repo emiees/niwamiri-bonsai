@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LayoutGrid, List, Plus, X, TreePine, Settings } from 'lucide-react'
+import { LayoutGrid, List, Plus, X, TreePine, Settings, Sparkles } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import BonsaiCard from '@/components/bonsai/BonsaiCard'
@@ -28,10 +28,12 @@ const STYLES: BonsaiStyle[] = [
 
 function AddBonsaiSheet({
   existingSpecies,
+  prefill,
   onClose,
   onSaved,
 }: {
   existingSpecies: string[]
+  prefill?: { species: string; commonName?: string }
   onClose: () => void
   onSaved: (id: string) => void
 }) {
@@ -40,8 +42,8 @@ function AddBonsaiSheet({
   const addBonsai = useBonsaiStore((s) => s.addBonsai)
 
   const [name, setName] = useState('')
-  const [species, setSpecies] = useState('')
-  const [commonName, setCommonName] = useState('')
+  const [species, setSpecies] = useState(prefill?.species ?? '')
+  const [commonName, setCommonName] = useState(prefill?.commonName ?? '')
   const [status, setStatus] = useState<BonsaiStatus>('developing')
   const [style, setStyle] = useState<BonsaiStyle | ''>('')
   const [germinationYear, setGerminationYear] = useState('')
@@ -313,6 +315,7 @@ function AddBonsaiSheet({
 export default function Inventory() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
 
   const { bonsais, loading, fetchBonsais } = useBonsaiStore()
@@ -324,6 +327,19 @@ export default function Inventory() {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [showAdd, setShowAdd] = useState(false)
+  const [fabOpen, setFabOpen] = useState(false)
+  const [prefill, setPrefill] = useState<{ species: string; commonName?: string } | undefined>()
+
+  // Si venimos de Identificar con especie pre-cargada, abrir el sheet
+  useEffect(() => {
+    const state = location.state as { prefillSpecies?: string; prefillCommonName?: string } | null
+    if (state?.prefillSpecies) {
+      setPrefill({ species: state.prefillSpecies, commonName: state.prefillCommonName })
+      setShowAdd(true)
+      // Limpiar el state de navegación para que no se re-abra en refreshes
+      window.history.replaceState({}, '')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load bonsais + pending events on mount
   useEffect(() => {
@@ -540,11 +556,40 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* FAB */}
+      {/* FAB expandible */}
+      {fabOpen && (
+        <div
+          className="fixed inset-0 z-20"
+          onClick={() => setFabOpen(false)}
+        />
+      )}
+      {fabOpen && (
+        <div className="fixed bottom-[6.5rem] right-4 z-30 flex flex-col items-end gap-2">
+          <button
+            onClick={() => { setFabOpen(false); setPrefill(undefined); setShowAdd(true) }}
+            className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-lg"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text1)' }}
+          >
+            <TreePine size={16} style={{ color: 'var(--color-accent)' }} />
+            {lang === 'es' ? 'Nuevo bonsai' : 'New bonsai'}
+          </button>
+          <button
+            onClick={() => { setFabOpen(false); navigate('/identify') }}
+            className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-lg"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text1)' }}
+          >
+            <Sparkles size={16} style={{ color: 'var(--color-accent)' }} />
+            {lang === 'es' ? 'Identificar con IA' : 'Identify with AI'}
+          </button>
+        </div>
+      )}
       <button
-        onClick={() => setShowAdd(true)}
-        className="fixed bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full shadow-lg"
-        style={{ background: 'var(--color-accent)' }}
+        onClick={() => setFabOpen((v) => !v)}
+        className="fixed bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform"
+        style={{
+          background: 'var(--color-accent)',
+          transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+        }}
         aria-label={t('inventory.addNew')}
       >
         <Plus size={24} style={{ color: 'var(--green1)' }} />
@@ -554,9 +599,11 @@ export default function Inventory() {
       {showAdd && (
         <AddBonsaiSheet
           existingSpecies={speciesOptions}
-          onClose={() => setShowAdd(false)}
+          prefill={prefill}
+          onClose={() => { setShowAdd(false); setPrefill(undefined) }}
           onSaved={(id) => {
             setShowAdd(false)
+            setPrefill(undefined)
             navigate(`/bonsai/${id}`)
           }}
         />
