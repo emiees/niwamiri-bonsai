@@ -104,10 +104,11 @@ export default function GeneralAssistant() {
       const finalMsgs = [...updated, assistantMsg]
       setMessages(finalMsgs)
       await saveConversation(finalMsgs)
-    } catch {
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err)
       const errMsg: Message = {
         role: 'assistant',
-        content: t('ai.error'),
+        content: `${t('ai.error')}\n\n${detail}`,
         timestamp: Date.now(),
       }
       setMessages((prev) => [...prev, errMsg])
