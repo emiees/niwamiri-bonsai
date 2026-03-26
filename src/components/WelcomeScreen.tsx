@@ -27,7 +27,7 @@ export default function WelcomeScreen() {
 
   const [visible, setVisible] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
-  const [countdown, setCountdown] = useState(6)
+  const [countdown, setCountdown] = useState(10)
 
   // Mostrar solo una vez por sesión
   useEffect(() => {

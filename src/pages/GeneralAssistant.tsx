@@ -264,7 +264,7 @@ export default function GeneralAssistant() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
                 }}
-                placeholder={t('ai.placeholder')}
+                placeholder={lang === 'es' ? 'Escribí tu consulta…' : 'Write your question…'}
                 rows={1}
                 className="flex-1 resize-none rounded-2xl px-4 py-2.5 text-sm focus:outline-none"
                 style={{
@@ -286,7 +286,7 @@ export default function GeneralAssistant() {
           </div>
 
           <input
-            ref={fileInputRef} type="file" accept="image/*" capture="environment"
+            ref={fileInputRef} type="file" accept="image/*"
             className="hidden" onChange={onFileChange}
           />
         </>

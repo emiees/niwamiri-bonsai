@@ -124,6 +124,7 @@ export interface JournalNote {
   content: string // texto libre obligatorio
   date: number // timestamp de la clase / experiencia
   tags: string[] // etiquetas libres definidas por el usuario
+  photos?: string[] // base64 comprimidas (campo additive, sin migración)
   createdAt: number
   updatedAt: number
 }

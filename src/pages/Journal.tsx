@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, X, BookOpen, Tag, Trash2 } from 'lucide-react'
+import { Plus, X, BookOpen, Tag, Trash2, Camera } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { storageService } from '@/services/storage/DexieStorageService'
+import { compressImage, base64ToDataUrl } from '@/utils/images'
 import type { JournalNote } from '@/db/schema'
 
 // ── Utilidades de fecha ─────────────────────────────────────────
@@ -45,8 +46,15 @@ function NoteSheet({
   const [date, setDate]       = useState(initial ? tsToInputDate(initial.date) : tsToInputDate(Date.now()))
   const [tags, setTags]       = useState<string[]>(initial?.tags ?? [])
   const [tagInput, setTagInput] = useState('')
+  const [photos, setPhotos]   = useState<string[]>(initial?.photos ?? [])
   const [saving, setSaving]   = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function addPhoto(file: File) {
+    const b64 = await compressImage(file, 1200, 0.85)
+    setPhotos((prev) => [...prev, b64])
+  }
 
   const tagSuggestions = useMemo(
     () => existingTags.filter((t) => !tags.includes(t) && t.toLowerCase().includes(tagInput.toLowerCase())),
@@ -76,6 +84,7 @@ function NoteSheet({
       content: content.trim(),
       date: inputDateToTs(date),
       tags,
+      photos: photos.length > 0 ? photos : undefined,
     })
     setSaving(false)
   }
@@ -205,6 +214,50 @@ function NoteSheet({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Fotos */}
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
+              {lang === 'es' ? 'Fotos' : 'Photos'}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {photos.map((p, i) => (
+                <div key={i} className="relative">
+                  <img
+                    src={base64ToDataUrl(p)}
+                    alt=""
+                    className="h-20 w-20 rounded-xl object-cover"
+                  />
+                  <button
+                    onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full"
+                    style={{ background: '#ef4444' }}
+                  >
+                    <X size={10} color="white" />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-xl"
+                style={{ background: 'var(--card)', border: '2px dashed var(--border)', color: 'var(--text3)' }}
+              >
+                <Camera size={18} />
+                <span className="text-[10px]">{lang === 'es' ? 'Agregar' : 'Add'}</span>
+              </button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                Array.from(e.target.files ?? []).forEach((f) => addPhoto(f))
+                e.target.value = ''
+              }}
+            />
           </div>
 
           {/* Eliminar nota */}
@@ -410,39 +463,61 @@ export default function Journal() {
             <button
               key={note.id}
               onClick={() => openEdit(note)}
-              className="flex flex-col gap-1.5 rounded-2xl px-4 py-3 text-left active:scale-[0.99] transition-transform"
+              className="flex gap-3 rounded-2xl px-4 py-3 text-left active:scale-[0.99] transition-transform"
               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
             >
-              {/* Fecha */}
-              <span className="text-[11px]" style={{ color: 'var(--text3)' }}>
-                {formatDate(note.date, lang)}
-              </span>
-
-              {/* Título o primera línea */}
-              <span className="text-sm font-semibold leading-snug line-clamp-1" style={{ color: 'var(--text1)' }}>
-                {note.title || note.content.split('\n')[0]}
-              </span>
-
-              {/* Contenido (preview si hay título) */}
-              {note.title && (
-                <span className="text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--text2)' }}>
-                  {note.content}
+              {/* Texto */}
+              <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+                {/* Fecha */}
+                <span className="text-[11px]" style={{ color: 'var(--text3)' }}>
+                  {formatDate(note.date, lang)}
                 </span>
-              )}
 
-              {/* Tags */}
-              {note.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-0.5">
-                  {note.tags.map((tag) => (
+                {/* Título o primera línea */}
+                <span className="text-sm font-semibold leading-snug line-clamp-1" style={{ color: 'var(--text1)' }}>
+                  {note.title || note.content.split('\n')[0]}
+                </span>
+
+                {/* Contenido (preview si hay título) */}
+                {note.title && (
+                  <span className="text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--text2)' }}>
+                    {note.content}
+                  </span>
+                )}
+
+                {/* Tags */}
+                {note.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {note.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                        style={{ background: 'var(--bg3)', color: 'var(--text3)' }}
+                      >
+                        <Tag size={8} />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Thumbnail de primera foto */}
+              {note.photos && note.photos.length > 0 && (
+                <div className="relative shrink-0">
+                  <img
+                    src={base64ToDataUrl(note.photos[0])}
+                    alt=""
+                    className="h-16 w-16 rounded-xl object-cover"
+                  />
+                  {note.photos.length > 1 && (
                     <span
-                      key={tag}
-                      className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                      style={{ background: 'var(--bg3)', color: 'var(--text3)' }}
+                      className="absolute bottom-1 right-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+                      style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}
                     >
-                      <Tag size={8} />
-                      {tag}
+                      +{note.photos.length - 1}
                     </span>
-                  ))}
+                  )}
                 </div>
               )}
             </button>
