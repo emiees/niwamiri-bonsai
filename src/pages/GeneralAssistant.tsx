@@ -13,7 +13,7 @@ import { compressImage, base64ToDataUrl } from '@/utils/images'
 // ID especial para la conversación general (sin árbol)
 const GENERAL_CONVERSATION_ID = 'general'
 
-type Message = { role: 'user' | 'assistant'; content: string; imageBase64?: string; timestamp: number }
+type Message = { role: 'user' | 'assistant'; content: string; imageBase64?: string; timestamp: number; isError?: boolean }
 
 export default function GeneralAssistant() {
   const { t, i18n } = useTranslation()
@@ -110,6 +110,7 @@ export default function GeneralAssistant() {
         role: 'assistant',
         content: `${t('ai.error')}\n\n${detail}`,
         timestamp: Date.now(),
+        isError: true,
       }
       setMessages((prev) => [...prev, errMsg])
     } finally {
@@ -195,23 +196,37 @@ export default function GeneralAssistant() {
                 key={i}
                 className={`mb-3 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div
-                  className="max-w-[80%] rounded-2xl px-4 py-2.5"
-                  style={{
-                    background: msg.role === 'user' ? 'var(--color-accent)' : 'var(--card)',
-                    color: msg.role === 'user' ? 'var(--green1)' : 'var(--text1)',
-                    border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
-                  }}
-                >
-                  {msg.imageBase64 && (
-                    <img
-                      src={base64ToDataUrl(msg.imageBase64)}
-                      alt=""
-                      className="mb-2 max-w-full rounded-xl"
-                    />
-                  )}
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                </div>
+                {msg.isError ? (
+                  <div
+                    className="max-w-[90%] rounded-2xl px-4 py-3"
+                    style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)' }}
+                  >
+                    <p className="mb-1.5 text-xs font-semibold" style={{ color: '#ef4444' }}>
+                      {lang === 'es' ? 'Error de conexión con la IA' : 'AI connection error'}
+                    </p>
+                    <p className="text-xs leading-relaxed whitespace-pre-wrap font-mono" style={{ color: '#f87171' }}>
+                      {msg.content.split('\n\n').slice(1).join('\n\n') || msg.content}
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className="max-w-[80%] rounded-2xl px-4 py-2.5"
+                    style={{
+                      background: msg.role === 'user' ? 'var(--color-accent)' : 'var(--card)',
+                      color: msg.role === 'user' ? 'var(--green1)' : 'var(--text1)',
+                      border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
+                    }}
+                  >
+                    {msg.imageBase64 && (
+                      <img
+                        src={base64ToDataUrl(msg.imageBase64)}
+                        alt=""
+                        className="mb-2 max-w-full rounded-xl"
+                      />
+                    )}
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                )}
               </div>
             ))}
 

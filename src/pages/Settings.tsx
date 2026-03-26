@@ -375,7 +375,7 @@ export default function Settings() {
           <Row>
             <RowLabel label="Desarrollador" sublabel="Emi Salazar" />
           </Row>
-          <Row last>
+          <Row>
             <RowLabel label="Contacto" />
             <a
               href="mailto:emilianoesalazar@gmail.com"
@@ -383,6 +383,19 @@ export default function Settings() {
               style={{ color: 'var(--color-accent)' }}
             >
               emilianoesalazar@gmail.com
+            </a>
+          </Row>
+          <Row last>
+            <RowLabel label="Impulsado por" />
+            <a
+              href="https://www.instagram.com/gabrielmedinabonsai/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs font-medium"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              GM Bonsai
+              <ExternalLink size={11} />
             </a>
           </Row>
         </Section>

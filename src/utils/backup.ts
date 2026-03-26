@@ -41,7 +41,7 @@ export async function exportBonsaiBackup(bonsaiId: string): Promise<Blob> {
 }
 
 export async function exportBackup(): Promise<Blob> {
-  const [bonsais, cares, photos, classNotes, speciesSheets, events, conversations, config] =
+  const [bonsais, cares, photos, classNotes, speciesSheets, events, conversations, journalNotes, config] =
     await Promise.all([
       db.bonsais.toArray(),
       db.cares.toArray(),
@@ -50,6 +50,7 @@ export async function exportBackup(): Promise<Blob> {
       db.speciesSheets.toArray(),
       db.events.toArray(),
       db.conversations.toArray(),
+      db.journalNotes.toArray(),
       db.config.toArray(),
     ])
 
@@ -58,14 +59,14 @@ export async function exportBackup(): Promise<Blob> {
   // JSON data (without photo image data to keep it clean)
   const photosWithoutData = photos.map(({ imageData: _, ...rest }) => rest)
   const jsonData = {
-    version: 1,
+    version: 2,
     exportedAt: Date.now(),
     bonsais, cares, photos: photosWithoutData,
-    classNotes, speciesSheets, events, conversations, config,
+    classNotes, speciesSheets, events, conversations, journalNotes, config,
   }
   zip.file('data.json', JSON.stringify(jsonData, null, 2))
 
-  // Photos folder
+  // Photos folder (fotos de cuidados/galería)
   const photosFolder = zip.folder('photos')!
   for (const photo of photos) {
     if (photo.imageData) {
@@ -97,7 +98,7 @@ export async function importBackup(file: File, mode: 'replace' | 'merge'): Promi
 
   await db.transaction(
     'rw',
-    [db.bonsais, db.cares, db.photos, db.classNotes, db.speciesSheets, db.events, db.conversations, db.config],
+    [db.bonsais, db.cares, db.photos, db.classNotes, db.speciesSheets, db.events, db.conversations, db.journalNotes, db.config],
     async () => {
       if (mode === 'replace') {
         await Promise.all([
@@ -108,6 +109,7 @@ export async function importBackup(file: File, mode: 'replace' | 'merge'): Promi
           db.speciesSheets.clear(),
           db.events.clear(),
           db.conversations.clear(),
+          db.journalNotes.clear(),
         ])
       }
 
@@ -118,6 +120,7 @@ export async function importBackup(file: File, mode: 'replace' | 'merge'): Promi
       if (data.speciesSheets?.length) await db.speciesSheets.bulkPut(data.speciesSheets)
       if (data.events?.length) await db.events.bulkPut(data.events)
       if (data.conversations?.length) await db.conversations.bulkPut(data.conversations)
+      if (data.journalNotes?.length) await db.journalNotes.bulkPut(data.journalNotes)
       if (data.config?.length) await db.config.bulkPut(data.config)
     }
   )
