@@ -143,4 +143,4 @@ Inspirado y apoyado por **[GM Bonsai](https://www.instagram.com/gabrielmedinabon
 
 ## Licencia
 
-Uso personal. Sin licencia de código abierto por el momento.
+MIT — ver [LICENSE](LICENSE).
