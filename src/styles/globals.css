@@ -64,6 +64,7 @@
   --color-green5: #6ec48a;
   --color-green6: #b8dcc8;
   --color-accent:  #4ab87a;
+  --green1: var(--color-green1); /* alias para texto sobre fondo accent */
 
   /* Semantic */
   --color-warn: #e07840;

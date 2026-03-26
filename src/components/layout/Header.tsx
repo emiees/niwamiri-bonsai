@@ -60,7 +60,7 @@ export default function Header({ title, showBack = false, actions, className }: 
       </div>
 
       {/* Right — action slot */}
-      <div className="flex w-10 items-center justify-end gap-1">
+      <div className="flex min-w-[40px] items-center justify-end gap-1">
         {actions}
       </div>
     </header>

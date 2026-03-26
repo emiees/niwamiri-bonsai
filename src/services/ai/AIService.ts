@@ -13,6 +13,12 @@ export interface BonsaiContext {
   season: 'spring' | 'summer' | 'autumn' | 'winter'
 }
 
+export interface GeneralContext {
+  bonsais: Array<{ name: string; species: string; commonName?: string; status: string }>
+  recentJournalNotes: Array<{ title?: string; content: string; date: number }>
+  season: 'spring' | 'summer' | 'autumn' | 'winter'
+}
+
 export interface AIService {
   // Identificar especie por foto
   identifySpecies(imageBase64: string, lang?: string): Promise<{
@@ -34,6 +40,9 @@ export interface AIService {
 
   // Chat libre contextualizado por ejemplar
   chat(messages: AIMessage[], context: BonsaiContext): Promise<string>
+
+  // Chat general con contexto de toda la colección
+  chatGeneral(messages: AIMessage[], context: GeneralContext): Promise<string>
 
   // Sugerir próximos cuidados
   suggestNextCares(context: BonsaiContext): Promise<

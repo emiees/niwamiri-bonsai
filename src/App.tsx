@@ -13,8 +13,11 @@ import SpeciesSheet from './pages/SpeciesSheet'
 import AIAssistant from './pages/AIAssistant'
 import Calendar from './pages/Calendar'
 import Identify from './pages/Identify'
+import Journal from './pages/Journal'
+import GeneralAssistant from './pages/GeneralAssistant'
 import Backup from './pages/Backup'
 import Settings from './pages/Settings'
+import WelcomeScreen from './components/WelcomeScreen'
 
 function OnboardingGuard({ children }: { children: React.ReactNode }) {
   const config = useAppStore((s) => s.config)
@@ -36,6 +39,7 @@ export default function App() {
 
   return (
     <HashRouter>
+      {config?.onboardingCompleted && <WelcomeScreen />}
       <Routes>
         {/* Onboarding — accessible always */}
         <Route path="/onboarding" element={<Onboarding />} />
@@ -102,6 +106,22 @@ export default function App() {
           element={
             <OnboardingGuard>
               <AIAssistant />
+            </OnboardingGuard>
+          }
+        />
+        <Route
+          path="/journal"
+          element={
+            <OnboardingGuard>
+              <Journal />
+            </OnboardingGuard>
+          }
+        />
+        <Route
+          path="/assistant"
+          element={
+            <OnboardingGuard>
+              <GeneralAssistant />
             </OnboardingGuard>
           }
         />

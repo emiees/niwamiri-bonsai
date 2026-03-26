@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { TreePine } from 'lucide-react'
 import { storageService } from '@/services/storage/DexieStorageService'
 import { calcAge, formatRelative } from '@/utils/dates'
+import { base64ToDataUrl } from '@/utils/images'
 import type { Bonsai } from '@/db/schema'
 
 interface BonsaiCardProps {
@@ -21,7 +22,7 @@ export default function BonsaiCard({ bonsai, hasPending, view, onClick }: Bonsai
       storageService.getPhotosByBonsai(bonsai.id).then((photos) => {
         if (cancelled) return
         const main = photos.find((p) => p.id === bonsai.mainPhotoId)
-        if (main) setPhotoSrc(main.imageData)
+        if (main) setPhotoSrc(base64ToDataUrl(main.imageData))
       }).catch(() => {})
     }
     storageService.getCaresByBonsai(bonsai.id).then((cares) => {

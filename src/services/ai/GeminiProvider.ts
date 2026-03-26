@@ -1,4 +1,4 @@
-import type { AIService, AIMessage, BonsaiContext } from './AIService'
+import type { AIService, AIMessage, BonsaiContext, GeneralContext } from './AIService'
 import type { ClassNote, CareType, Care } from '../../db/schema'
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
@@ -98,6 +98,50 @@ Respond in Spanish. Be helpful and concise.`
       }
     )
 
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`Gemini ${res.status}: ${body}`)
+    }
+    const data = await res.json()
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  }
+
+  async chatGeneral(messages: AIMessage[], context: GeneralContext): Promise<string> {
+    const treeList = context.bonsais
+      .map((b) => `${b.name} (${b.commonName ?? b.species}, ${b.status})`)
+      .join(', ') || 'ninguno'
+    const notesSummary = context.recentJournalNotes.slice(0, 5)
+      .map((n) => `- ${n.title ? n.title + ': ' : ''}${n.content.slice(0, 120)}`)
+      .join('\n') || 'ninguna'
+
+    const systemPrompt = `Sos NiwaMirî, asistente experto en bonsái con acceso a la colección completa del usuario.
+Colección (${context.bonsais.length} árboles): ${treeList}
+Estación actual: ${context.season}
+Notas recientes de bitácora:\n${notesSummary}
+Respondé en español. Sé conciso y útil.`
+
+    const contents = [
+      { role: 'user', parts: [{ text: systemPrompt }] },
+      { role: 'model', parts: [{ text: 'Entendido. Tengo el contexto de tu colección. ¿En qué te puedo ayudar?' }] },
+      ...messages.map((m) => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [
+          ...(m.imageBase64
+            ? [{ inlineData: { mimeType: 'image/jpeg', data: m.imageBase64 } }]
+            : []),
+          { text: m.content },
+        ],
+      })),
+    ]
+
+    const res = await fetch(
+      `${GEMINI_API_BASE}/models/${this.model}:generateContent?key=${this.apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents }),
+      }
+    )
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       throw new Error(`Gemini ${res.status}: ${body}`)

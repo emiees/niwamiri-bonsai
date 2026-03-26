@@ -129,6 +129,8 @@ Cada usuario comparte la misma URL, instala la PWA, y configura su propia API ke
 | M10 | Identificación por Foto | Identificación de especie mediante IA de visión |
 | M11 | Backup y Restauración | Export/import de todos los datos |
 | M12 | Configuración Global | Idioma, proveedor IA, API key, preferencias |
+| M13 | Bitácora de Conocimiento | Notas generales de clase sin árbol de referencia, organizadas por etiquetas |
+| M14 | Asistente IA General | Chat libre con IA con acceso al inventario y la bitácora del usuario |
 
 ---
 
@@ -501,6 +503,86 @@ El usuario puede exportar solo un ejemplar (ficha + historial + fotos) para comp
 
 ---
 
+### M13 — Bitácora de Conocimiento
+
+Módulo para capturar conocimiento general aprendido en clase que no está atado a ningún árbol ni especie específica. Cubre técnicas transversales (propagación por esquejes, acodos, preparación de sustratos, teoría de poda, etc.) que son útiles para consultar en cualquier momento y para cualquier árbol.
+
+#### Diferencia con M6 (Notas de Clases)
+
+| — | M6 Notas de Clases | M13 Bitácora |
+|---|---|---|
+| Ancla obligatoria | Especie | Ninguna |
+| Uso típico | Nota sobre cómo podar este Ficus | Cómo hacer un acodo aéreo en general |
+| Contexto de la IA | Panel de cuidado de un árbol específico | Asistente General + panel de cuidado |
+
+#### Funcionalidades
+
+- Lista cronológica de notas con buscador de texto libre
+- Filtro por etiquetas (chips deslizables): `esquejes · acodos · sustratos · poda · fertilización · plagas · otros…`
+- Etiquetas libres: el usuario escribe sus propias tags, con sugerencias automáticas a partir de las ya usadas
+- Cada nota: fecha de la clase, título opcional, texto libre, etiquetas, fotos adjuntas opcionales
+- Edición y eliminación de notas
+- FAB (+) para nueva nota
+- Vista agrupada por etiqueta (toggle lista / por etiqueta)
+
+#### Formulario de nueva nota
+
+| Campo | Tipo | Requerido |
+|---|---|---|
+| Título | Texto corto | No |
+| Texto | Texto largo | Sí |
+| Fecha | Fecha | Sí (default: hoy) |
+| Etiquetas | Tags libres con autocompletar | No |
+| Fotos adjuntas | Desde cámara o galería | No |
+
+#### Integración con IA
+
+- Las notas de la Bitácora enriquecen el panel contextual de M4 (registro de cuidados): si la etiqueta de una nota coincide con el tipo de cuidado en curso, se incluye como contexto adicional
+- El Asistente IA General (M14) recibe las últimas N notas de la Bitácora como parte de su contexto para dar respuestas más personalizadas al conocimiento del usuario
+
+---
+
+### M14 — Asistente IA General
+
+Chat libre con IA sin árbol de referencia. El asistente conoce el inventario completo del usuario y su Bitácora, lo que le permite dar respuestas contextualizadas a su colección sin estar limitado a un árbol específico.
+
+#### Diferencia con M8 (Asistente IA por Ejemplar)
+
+| — | M8 Asistente por Ejemplar | M14 Asistente General |
+|---|---|---|
+| Contexto principal | Historial completo de un árbol | Inventario completo + Bitácora |
+| Acceso | Desde la ficha del árbol | Tab dedicado en BottomNav |
+| Historial | Por árbol | Por conversación, independiente |
+| Uso típico | "¿Cuándo podo este Ficus?" | "¿Qué especie elijo para mi próximo proyecto?" |
+
+#### Contexto que recibe la IA en cada consulta
+
+- Inventario del usuario: nombre, especie, estado y estilo de cada árbol
+- Estación del año actual (según hemisferio configurado)
+- Últimas N notas de la Bitácora (M13) como conocimiento técnico del usuario
+- Historial de la conversación activa
+- Mensaje y foto adjunta del usuario (si corresponde)
+
+#### Casos de uso típicos
+
+- Exploración de ideas: *"Tengo un plantín de Olmo chino, ¿qué forma le doy? [foto]"*
+- Nuevo proyecto: *"Quiero empezar un Bonsai nuevo, ¿qué especie me recomendás para clima templado?"*
+- Técnica general: *"¿Cómo hago un acodo aéreo paso a paso?"*
+- Planificación: *"¿Es compatible hacer poda estructural y trasplante el mismo año?"*
+- Diagnóstico sin árbol específico: *"Vi esta planta en vivero y me parece interesante para Bonsai [foto], ¿qué me decís?"*
+
+#### Funcionalidades
+
+- Lista de conversaciones pasadas ordenadas por última interacción (título + fecha)
+- Múltiples conversaciones independientes persistidas en IndexedDB
+- Título de conversación: editable manualmente o auto-generado a partir del primer mensaje
+- Adjuntar foto en cualquier mensaje (desde cámara o galería)
+- Indicador de carga mientras la IA procesa
+- Crear nueva conversación
+- Eliminar conversación (con confirmación)
+
+---
+
 ## 5. Modelo de Datos
 
 ### 5.1 Entidades principales
@@ -509,11 +591,12 @@ El usuario puede exportar solo un ejemplar (ficha + historial + fotos) para comp
 |---|---|---|
 | Bonsai | Árbol de la colección | 1 → N Cuidados, N Fotos, N Conversaciones |
 | Care | Registro de intervención | N:1 con Bonsai, N Fotos adjuntas |
-| Photo | Imagen asociada a árbol o cuidado | N:1 con Bonsai o con Care |
+| Photo | Imagen asociada a árbol, cuidado o nota de bitácora | N:1 con Bonsai, Care o JournalNote |
 | ClassNote | Nota con ancla en especie + vínculos opcionales | Especie (obligatorio) + Ejemplar + Cuidado (opcionales) |
+| JournalNote | Nota de bitácora sin ancla obligatoria | Fotos opcionales, etiquetas libres |
 | SpeciesSheet | Ficha técnica cacheada de una especie | Vinculada por nombre de especie |
 | CalendarEvent | Evento futuro en el calendario | N:1 con Bonsai (opcional) |
-| AIConversation | Historial de chat IA | N:1 con Bonsai |
+| AIConversation | Historial de chat IA | N:1 con Bonsai (ejemplar) o sin Bonsai (general) |
 | AppConfig | Ajustes globales del usuario | Entidad única (singleton) |
 
 ### 5.2 Entidad Bonsai
@@ -536,7 +619,20 @@ El usuario puede exportar solo un ejemplar (ficha + historial + fotos) para comp
 | creadoEn | timestamp | Fecha de creación |
 | actualizadoEn | timestamp | Última modificación |
 
-### 5.3 Entidad Care (Cuidado)
+### 5.3 Entidad JournalNote (Bitácora)
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | UUID | Generado automáticamente |
+| titulo | string? | Opcional |
+| texto | string | Contenido principal |
+| fecha | date | Fecha de la clase o experiencia (default: hoy) |
+| etiquetas | string[] | Tags libres definidos por el usuario |
+| fotosAdjuntas | UUID[] | Referencias a fotos (tabla Photo) |
+| creadoEn | timestamp | Fecha de creación del registro |
+| actualizadoEn | timestamp | Última modificación |
+
+### 5.4 Entidad Care (Cuidado)
 
 | Campo | Tipo | Notas |
 |---|---|---|
@@ -550,6 +646,17 @@ El usuario puede exportar solo un ejemplar (ficha + historial + fotos) para comp
 | recordatorioSeguimiento | object | Fecha + descripción (opcional) |
 | creadoEn | timestamp | Fecha de creación |
 
+### 5.5 Entidad AIConversation (extendida)
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | UUID | Generado automáticamente |
+| bonsaiId | UUID? | `null` para conversaciones generales (M14); UUID para conversaciones por ejemplar (M8) |
+| titulo | string | Editable o auto-generado a partir del primer mensaje |
+| mensajes | Message[] | Historial completo de la conversación |
+| fechaUltimaInteraccion | timestamp | Para ordenar la lista de conversaciones |
+| creadoEn | timestamp | Fecha de creación |
+
 ---
 
 ## 6. Integraciones de Inteligencia Artificial
@@ -561,18 +668,24 @@ El usuario puede exportar solo un ejemplar (ficha + historial + fotos) para comp
 | `identificarEspecie(foto)` | Identifica especie a partir de imagen | Sí |
 | `generarFichaTecnica(especie)` | Genera ficha técnica estructurada | No |
 | `resumirNotasParaCuidado(notas, tipoCuidado, especie)` | Resumen contextual para formulario de cuidado | No |
-| `consultarAsistente(mensajes, contextoArbol)` | Chat libre con contexto del árbol | Opcional |
+| `consultarAsistente(mensajes, contextoArbol)` | Chat libre con contexto del árbol (M8) | Opcional |
+| `consultarAsistenteGeneral(mensajes, contextoGeneral)` | Chat libre con contexto de inventario + bitácora (M14) | Opcional |
 | `sugerirProximosCuidados(bonsai, estacion)` | Lista de cuidados recomendados | No |
 | `sugerirRecordatorio(cuidado, contexto)` | Fecha y descripción sugerida para seguimiento | No |
 | `verificarConexion(apiKey)` | Prueba validez de la API key | No |
 
 ### 6.2 Construcción del contexto
 
-Para consultas libres y sugerencias, el sistema construye automáticamente:
+**Contexto por ejemplar (M8):** para consultas libres y sugerencias sobre un árbol específico:
 - Nombre y especie del árbol
 - Estilo, tamaño y estado actual
 - Historial de los últimos 10 cuidados registrados
 - Notas de clase disponibles para la especie (priorizando las del ejemplar)
+- Estación del año actual según hemisferio configurado
+
+**Contexto general (M14):** para consultas sin árbol de referencia:
+- Inventario completo: nombre, especie, estado y estilo de cada árbol de la colección
+- Últimas N notas de la Bitácora (M13) del usuario
 - Estación del año actual según hemisferio configurado
 
 ### 6.3 Modelo BYOK (Bring Your Own Key)
@@ -585,12 +698,20 @@ Cada usuario configura su propia API key durante el onboarding. La key se guarda
 
 ### 7.1 Barra de navegación inferior
 
+4 tabs principales con acceso a las secciones de uso frecuente:
+
 | Tab | Destino | Módulo |
 |---|---|---|
 | 🌳 Colección | Inventario de Ejemplares | M2 |
+| 📓 Bitácora | Notas generales de conocimiento | M13 |
+| ✨ Asistente | Chat IA general | M14 |
 | 📅 Calendario | Calendario y Recordatorios | M9 |
-| 🔍 Identificar | Identificación por Foto | M10 |
-| ⚙️ Ajustes | Configuración Global | M12 |
+
+**Ajustes (M12)** se accede mediante el ícono ⚙️ en la esquina superior derecha del header de la pantalla Colección. No ocupa un tab propio ya que es una sección de configuración de uso esporádico.
+
+**Identificar (M10)** se accede desde:
+- El botón "+" de nuevo árbol en el Inventario (M2)
+- Un botón dentro del Asistente General (M14) para adjuntar foto con intención de identificar especie
 
 ### 7.2 Navegación dentro de la Ficha del Ejemplar
 

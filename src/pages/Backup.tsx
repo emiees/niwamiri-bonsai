@@ -4,6 +4,8 @@ import { Download, Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-rea
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { exportBackup, importBackup } from '@/utils/backup'
+import { useAppStore } from '@/store/appStore'
+import { storageService } from '@/services/storage/DexieStorageService'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
 
@@ -11,6 +13,7 @@ export default function Backup() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
 
+  const updateConfig = useAppStore((s) => s.updateConfig)
   const [exportStatus, setExportStatus] = useState<Status>('idle')
   const [importStatus, setImportStatus] = useState<Status>('idle')
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('merge')
@@ -29,6 +32,9 @@ export default function Backup() {
       a.download = `niwamiri_backup_${date}.zip`
       a.click()
       URL.revokeObjectURL(url)
+      const now = Date.now()
+      updateConfig({ lastBackupAt: now })
+      await storageService.updateConfig({ lastBackupAt: now })
       setExportStatus('ok')
       setTimeout(() => setExportStatus('idle'), 3000)
     } catch {

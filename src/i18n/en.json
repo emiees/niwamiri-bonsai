@@ -1,6 +1,8 @@
 {
   "nav": {
     "inventory": "Collection",
+    "journal": "Journal",
+    "assistant": "Assistant",
     "calendar": "Calendar",
     "identify": "Identify",
     "settings": "Settings"

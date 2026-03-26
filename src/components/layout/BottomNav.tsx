@@ -1,13 +1,13 @@
 import { NavLink } from 'react-router-dom'
-import { TreePine, Calendar, ScanSearch, Settings } from 'lucide-react'
+import { TreePine, BookOpen, Sparkles, Calendar } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { to: '/',          icon: TreePine,   labelKey: 'nav.inventory' },
-  { to: '/calendar',  icon: Calendar,   labelKey: 'nav.calendar'  },
-  { to: '/identify',  icon: ScanSearch, labelKey: 'nav.identify'  },
-  { to: '/settings',  icon: Settings,   labelKey: 'nav.settings'  },
+  { to: '/',           icon: TreePine,  labelKey: 'nav.inventory'  },
+  { to: '/journal',    icon: BookOpen,  labelKey: 'nav.journal'    },
+  { to: '/assistant',  icon: Sparkles,  labelKey: 'nav.assistant'  },
+  { to: '/calendar',   icon: Calendar,  labelKey: 'nav.calendar'   },
 ] as const
 
 export default function BottomNav() {

@@ -101,7 +101,20 @@ function EditSheet({
   const [location, setLocation] = useState(bonsai.location ?? '')
   const [potAndSubstrate, setPotAndSubstrate] = useState(bonsai.potAndSubstrate ?? '')
   const [generalNotes, setGeneralNotes] = useState(bonsai.generalNotes ?? '')
+  const [tags, setTags] = useState<string[]>(bonsai.tags ?? [])
+  const [tagInput, setTagInput] = useState('')
   const [saving, setSaving] = useState(false)
+
+  function addTag(value: string) {
+    const t = value.trim().toLowerCase()
+    if (t && !tags.includes(t)) setTags((prev) => [...prev, t])
+    setTagInput('')
+  }
+
+  function onTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagInput) }
+    if (e.key === 'Backspace' && !tagInput && tags.length > 0) setTags((prev) => prev.slice(0, -1))
+  }
 
   async function save() {
     if (!name.trim() || !species.trim()) return
@@ -118,6 +131,7 @@ function EditSheet({
       location: location.trim() || undefined,
       potAndSubstrate: potAndSubstrate.trim() || undefined,
       generalNotes: generalNotes.trim() || undefined,
+      tags: tags.length > 0 ? tags : undefined,
     })
     onSaved()
   }
@@ -220,6 +234,33 @@ function EditSheet({
           )}
           {field(lang === 'es' ? 'Ubicación' : 'Location', textInput(location, setLocation, lang === 'es' ? 'Ej: exterior, sombra' : 'E.g. outdoor, shade'))}
           {field(lang === 'es' ? 'Maceta / Sustrato' : 'Pot / Substrate', textInput(potAndSubstrate, setPotAndSubstrate))}
+          {field(lang === 'es' ? 'Etiquetas' : 'Tags',
+            <div
+              className="flex flex-wrap gap-1.5 rounded-xl px-3 py-2.5 min-h-[44px]"
+              style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}
+            >
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                  style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
+                >
+                  {tag}
+                  <button onClick={() => setTags((prev) => prev.filter((t) => t !== tag))} className="leading-none">×</button>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={onTagKeyDown}
+                onBlur={() => { if (tagInput.trim()) addTag(tagInput) }}
+                placeholder={tags.length === 0 ? (lang === 'es' ? 'escuela, mío… Enter para agregar' : 'school, mine… Enter to add') : ''}
+                className="flex-1 min-w-[120px] bg-transparent text-xs focus:outline-none"
+                style={{ color: 'var(--text1)' }}
+              />
+            </div>
+          )}
           {field(lang === 'es' ? 'Notas generales' : 'General notes',
             <textarea value={generalNotes} onChange={(e) => setGeneralNotes(e.target.value)}
               rows={3} placeholder={lang === 'es' ? 'Observaciones libres...' : 'Free observations...'}

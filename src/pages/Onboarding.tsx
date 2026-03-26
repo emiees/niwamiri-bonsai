@@ -185,6 +185,9 @@ export default function Onboarding() {
         </p>
       </div>
       <p className="max-w-xs text-sm leading-relaxed" style={{ color: 'var(--text3)' }}>
+        <span className="block font-semibold mb-1" style={{ color: 'var(--text1)' }}>
+          {lang === 'es' ? '¡Bienvenido!' : 'Welcome!'}
+        </span>
         {lang === 'es'
           ? 'Registrá tus árboles, sus cuidados, fotos y notas. Con inteligencia artificial que te acompaña en cada decisión.'
           : 'Record your trees, their care, photos, and notes. With AI that guides you in every decision.'}
@@ -257,11 +260,23 @@ export default function Onboarding() {
         ))}
       </ol>
 
+      {/* Qué es una API Key */}
+      <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}>
+        <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text2)' }}>
+          {lang === 'es' ? '¿Qué es una API Key?' : 'What is an API Key?'}
+        </p>
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--text3)' }}>
+          {lang === 'es'
+            ? 'Es como una contraseña personal que te da acceso al servicio de IA. NiwaMirî la usa para consultar al asistente cuando vos lo pedís. Se guarda cifrada en tu dispositivo y nunca sale de él.'
+            : 'It\'s like a personal password that gives you access to the AI service. NiwaMirî uses it to query the assistant when you ask. It\'s stored encrypted on your device and never leaves it.'}
+        </p>
+      </div>
+
       <a
         href={providerLink}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-2 flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold"
+        className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold"
         style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--color-accent)' }}
       >
         <ExternalLink size={15} />
@@ -341,12 +356,8 @@ export default function Onboarding() {
   }
 
   async function handleSkip() {
-    if (step === 3) {
-      // skip API key — finish without key
-      await finish(false)
-    } else {
-      handleNext()
-    }
+    // omitir siempre sale del wizard sin guardar API key
+    await finish(false)
   }
 
   return (

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LayoutGrid, List, Plus, X, TreePine } from 'lucide-react'
+import { LayoutGrid, List, Plus, X, TreePine, Settings } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import BonsaiCard from '@/components/bonsai/BonsaiCard'
@@ -45,8 +45,21 @@ function AddBonsaiSheet({
   const [status, setStatus] = useState<BonsaiStatus>('developing')
   const [style, setStyle] = useState<BonsaiStyle | ''>('')
   const [germinationYear, setGerminationYear] = useState('')
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+
+  function addTag(value: string) {
+    const t = value.trim().toLowerCase()
+    if (t && !tags.includes(t)) setTags((prev) => [...prev, t])
+    setTagInput('')
+  }
+
+  function onTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagInput) }
+    if (e.key === 'Backspace' && !tagInput && tags.length > 0) setTags((prev) => prev.slice(0, -1))
+  }
 
   const suggestions = useMemo(
     () => existingSpecies.filter((s) => s.toLowerCase().includes(species.toLowerCase()) && s !== species),
@@ -64,6 +77,7 @@ function AddBonsaiSheet({
         status,
         style: style || undefined,
         germinationYear: germinationYear ? parseInt(germinationYear) : undefined,
+        tags: tags.length > 0 ? tags : undefined,
       })
       onSaved(id)
     } catch {
@@ -168,6 +182,38 @@ function AddBonsaiSheet({
               className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               style={{ background: 'var(--card)', color: 'var(--text1)', border: '1px solid var(--border)' }}
             />
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
+              {lang === 'es' ? 'Etiquetas (opcional)' : 'Tags (optional)'}
+            </label>
+            <div
+              className="flex flex-wrap gap-1.5 rounded-xl px-3 py-2.5 min-h-[44px]"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+            >
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                  style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
+                >
+                  {tag}
+                  <button onClick={() => setTags((prev) => prev.filter((t) => t !== tag))} className="leading-none">×</button>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={onTagKeyDown}
+                onBlur={() => { if (tagInput.trim()) addTag(tagInput) }}
+                placeholder={tags.length === 0 ? (lang === 'es' ? 'escuela, mío… Enter para agregar' : 'school, mine… Enter to add') : ''}
+                className="flex-1 min-w-[120px] bg-transparent text-xs focus:outline-none"
+                style={{ color: 'var(--text1)' }}
+              />
+            </div>
           </div>
 
           {/* Status */}
@@ -275,6 +321,7 @@ export default function Inventory() {
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const [search, setSearch] = useState('')
   const [selectedSpecies, setSelectedSpecies] = useState<string[]>([])
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [showAdd, setShowAdd] = useState(false)
 
@@ -302,6 +349,11 @@ export default function Inventory() {
     [bonsais],
   )
 
+  const tagOptions = useMemo(
+    () => [...new Set(bonsais.flatMap((b) => b.tags ?? []))].sort(),
+    [bonsais],
+  )
+
   const filtered = useMemo(() => {
     let list = bonsais
     if (search.trim()) {
@@ -313,8 +365,11 @@ export default function Inventory() {
     if (selectedSpecies.length > 0) {
       list = list.filter((b) => selectedSpecies.includes(b.species))
     }
+    if (selectedTags.length > 0) {
+      list = list.filter((b) => selectedTags.every((tag) => b.tags?.includes(tag)))
+    }
     return list
-  }, [bonsais, search, selectedSpecies])
+  }, [bonsais, search, selectedSpecies, selectedTags])
 
   const seasonInfo = SEASON_LABELS[season]
   const pendingCount = pendingIds.size
@@ -333,19 +388,42 @@ export default function Inventory() {
       <Header
         title={t('inventory.title')}
         actions={
-          <button
-            onClick={() => setView((v) => (v === 'grid' ? 'list' : 'grid'))}
-            className="rounded-full p-2"
-            style={{ color: 'var(--text2)' }}
-            aria-label={view === 'grid' ? 'List view' : 'Grid view'}
-          >
-            {view === 'grid' ? <List size={20} /> : <LayoutGrid size={20} />}
-          </button>
+          <>
+            <button
+              onClick={() => setView((v) => (v === 'grid' ? 'list' : 'grid'))}
+              className="rounded-full p-2"
+              style={{ color: 'var(--text2)' }}
+              aria-label={view === 'grid' ? 'List view' : 'Grid view'}
+            >
+              {view === 'grid' ? <List size={20} /> : <LayoutGrid size={20} />}
+            </button>
+            <button
+              onClick={() => navigate('/settings')}
+              className="rounded-full p-2"
+              style={{ color: 'var(--text2)' }}
+              aria-label="Ajustes"
+            >
+              <Settings size={20} />
+            </button>
+          </>
         }
       />
 
+      {/* Estación + pendientes — sobre el buscador, alineado a la derecha */}
+      <div className="flex items-center justify-end gap-2 px-4 pt-2">
+        {seasonChip}
+        {pendingCount > 0 && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium"
+            style={{ background: 'rgba(251,146,60,0.15)', color: 'rgb(251,146,60)' }}
+          >
+            ⚠️ {pendingCount} {lang === 'es' ? 'pendiente' + (pendingCount > 1 ? 's' : '') : 'pending'}
+          </span>
+        )}
+      </div>
+
       {/* Search */}
-      <div className="px-4 pt-2">
+      <div className="px-4 pt-1">
         <input
           type="text"
           value={search}
@@ -356,16 +434,16 @@ export default function Inventory() {
         />
       </div>
 
-      {/* Species filter chips */}
-      {speciesOptions.length > 0 && (
+      {/* Species + tag filter chips */}
+      {(speciesOptions.length > 0 || tagOptions.length > 0) && (
         <div className="flex gap-2 overflow-x-auto px-4 pt-3 pb-2 scrollbar-none">
           <button
-            onClick={() => setSelectedSpecies([])}
+            onClick={() => { setSelectedSpecies([]); setSelectedTags([]) }}
             className="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium"
             style={{
-              background: selectedSpecies.length === 0 ? 'var(--color-accent)' : 'var(--card)',
-              color: selectedSpecies.length === 0 ? 'var(--green1)' : 'var(--text2)',
-              border: `1px solid ${selectedSpecies.length === 0 ? 'var(--color-accent)' : 'var(--border)'}`,
+              background: selectedSpecies.length === 0 && selectedTags.length === 0 ? 'var(--color-accent)' : 'var(--card)',
+              color: selectedSpecies.length === 0 && selectedTags.length === 0 ? 'var(--green1)' : 'var(--text2)',
+              border: `1px solid ${selectedSpecies.length === 0 && selectedTags.length === 0 ? 'var(--color-accent)' : 'var(--border)'}`,
             }}
           >
             {t('inventory.filterAll')}
@@ -388,21 +466,29 @@ export default function Inventory() {
               {sp}
             </button>
           ))}
+          {tagOptions.length > 0 && speciesOptions.length > 0 && (
+            <span className="shrink-0 self-center" style={{ color: 'var(--border)', fontSize: 18 }}>|</span>
+          )}
+          {tagOptions.map((tag) => (
+            <button
+              key={tag}
+              onClick={() =>
+                setSelectedTags((prev) =>
+                  prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+                )
+              }
+              className="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium"
+              style={{
+                background: selectedTags.includes(tag) ? 'var(--color-accent)' : 'var(--card)',
+                color: selectedTags.includes(tag) ? 'var(--green1)' : 'var(--text2)',
+                border: `1px solid ${selectedTags.includes(tag) ? 'var(--color-accent)' : 'var(--border)'}`,
+              }}
+            >
+              # {tag}
+            </button>
+          ))}
         </div>
       )}
-
-      {/* Season + pending row */}
-      <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-        {seasonChip}
-        {pendingCount > 0 && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium"
-            style={{ background: 'rgba(251,146,60,0.15)', color: 'rgb(251,146,60)' }}
-          >
-            ⚠️ {pendingCount} {lang === 'es' ? 'pendiente' + (pendingCount > 1 ? 's' : '') : 'pending'}
-          </span>
-        )}
-      </div>
 
       {/* Content */}
       {loading && bonsais.length === 0 ? (

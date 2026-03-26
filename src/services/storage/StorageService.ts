@@ -3,6 +3,7 @@ import type {
   Care,
   Photo,
   ClassNote,
+  JournalNote,
   SpeciesSheet,
   CalendarEvent,
   AppConfig,
@@ -32,6 +33,12 @@ export interface StorageService {
   saveNote(note: Omit<ClassNote, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>
   updateNote(id: string, data: Partial<ClassNote>): Promise<void>
   deleteNote(id: string): Promise<void>
+
+  // Journal Notes
+  getJournalNotes(): Promise<JournalNote[]>
+  saveJournalNote(note: Omit<JournalNote, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>
+  updateJournalNote(id: string, data: Partial<JournalNote>): Promise<void>
+  deleteJournalNote(id: string): Promise<void>
 
   // Species Sheets
   getSheetBySpecies(species: string): Promise<SpeciesSheet | undefined>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, ChevronRight } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, ChevronRight, ExternalLink } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import Toggle from '@/components/ui/Toggle'
@@ -85,6 +85,14 @@ const PROVIDER_MODEL_OPTIONS: Record<AIProvider, { value: string; label: string 
   ],
 }
 
+// ── Provider console links ─────────────────────────────────────
+
+const PROVIDER_LINKS: Record<AIProvider, string> = {
+  gemini: 'https://aistudio.google.com/app/apikey',
+  openai: 'https://platform.openai.com/api-keys',
+  claude: 'https://console.anthropic.com/settings/keys',
+}
+
 // ── API Key sub-component ──────────────────────────────────────
 
 function ApiKeyRow({
@@ -134,9 +142,21 @@ function ApiKeyRow({
       <p className="mb-0.5 text-sm font-medium" style={{ color: 'var(--text1)' }}>
         {t('settings.apiKey')}
       </p>
-      <p className="mb-2 text-xs" style={{ color: 'var(--text3)' }}>
-        Ingresá o reemplazá tu clave y presioná Verificar para guardar
-      </p>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs" style={{ color: 'var(--text3)' }}>
+          Ingresá o reemplazá tu clave y presioná Verificar para guardar
+        </p>
+        <a
+          href={PROVIDER_LINKS[provider]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex shrink-0 items-center gap-1 text-xs font-medium"
+          style={{ color: 'var(--color-accent)' }}
+        >
+          <ExternalLink size={12} />
+          Obtener key
+        </a>
+      </div>
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <input
@@ -347,8 +367,28 @@ export default function Settings() {
           </button>
         </Section>
 
-        <p className="mt-4 pb-2 text-center text-[11px]" style={{ color: 'var(--text3)' }}>
-          NiwaMirî v1.0 · Jardín pequeño
+        {/* ── Acerca de ─────────────────────────────── */}
+        <Section title="Acerca de">
+          <Row>
+            <RowLabel label="Aplicación" sublabel="NiwaMirî v1.0" />
+          </Row>
+          <Row>
+            <RowLabel label="Desarrollador" sublabel="Emi Salazar" />
+          </Row>
+          <Row last>
+            <RowLabel label="Contacto" />
+            <a
+              href="mailto:emilianoesalazar@gmail.com"
+              className="text-xs font-medium"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              emilianoesalazar@gmail.com
+            </a>
+          </Row>
+        </Section>
+
+        <p className="mt-2 pb-2 text-center text-[11px]" style={{ color: 'var(--text3)' }}>
+          Jardín pequeño 🌱
         </p>
       </div>
     </AppShell>

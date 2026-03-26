@@ -1,6 +1,8 @@
 {
   "nav": {
     "inventory": "Colección",
+    "journal": "Bitácora",
+    "assistant": "Asistente",
     "calendar": "Calendario",
     "identify": "Identificar",
     "settings": "Ajustes"

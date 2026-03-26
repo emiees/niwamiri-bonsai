@@ -54,6 +54,7 @@ export interface Bonsai {
   location?: string
   status: BonsaiStatus
   generalNotes?: string
+  tags?: string[] // etiquetas libres definidas por el usuario
   mainPhotoId?: string // ref → Photo.id
   createdAt: number // timestamp
   updatedAt: number
@@ -117,6 +118,16 @@ export interface CalendarEvent {
   createdAt: number
 }
 
+export interface JournalNote {
+  id: string
+  title?: string // opcional
+  content: string // texto libre obligatorio
+  date: number // timestamp de la clase / experiencia
+  tags: string[] // etiquetas libres definidas por el usuario
+  createdAt: number
+  updatedAt: number
+}
+
 export interface AIConversation {
   id: string
   bonsaiId: string
@@ -137,6 +148,7 @@ export interface AppConfig {
   pushNotifications: boolean
   onboardingCompleted: boolean
   fontSize: 'normal' | 'large'
+  lastBackupAt?: number // timestamp del último backup exportado
 }
 
 // ── DATABASE CLASS ─────────────────────────────────────────────
@@ -146,6 +158,7 @@ export class NiwaMiriDB extends Dexie {
   cares!: Table<Care>
   photos!: Table<Photo>
   classNotes!: Table<ClassNote>
+  journalNotes!: Table<JournalNote>
   speciesSheets!: Table<SpeciesSheet>
   events!: Table<CalendarEvent>
   conversations!: Table<AIConversation>
@@ -162,6 +175,10 @@ export class NiwaMiriDB extends Dexie {
       events: '++id, bonsaiId, type, date, completed',
       conversations: '++id, bonsaiId',
       config: '&id',
+    })
+    // v2: agrega tabla journalNotes (sin migración de datos existentes)
+    this.version(2).stores({
+      journalNotes: '++id, date',
     })
   }
 }

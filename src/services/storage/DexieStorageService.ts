@@ -5,6 +5,7 @@ import type {
   Care,
   Photo,
   ClassNote,
+  JournalNote,
   SpeciesSheet,
   CalendarEvent,
   AppConfig,
@@ -118,6 +119,27 @@ export class DexieStorageService implements StorageService {
 
   async deleteNote(id: string): Promise<void> {
     await this.db.classNotes.delete(id)
+  }
+
+  // ── Journal Notes ────────────────────────────────────────────
+
+  async getJournalNotes(): Promise<JournalNote[]> {
+    return this.db.journalNotes.orderBy('date').reverse().toArray()
+  }
+
+  async saveJournalNote(note: Omit<JournalNote, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    const now = Date.now()
+    const id = uuidv4()
+    await this.db.journalNotes.add({ ...note, id, createdAt: now, updatedAt: now })
+    return id
+  }
+
+  async updateJournalNote(id: string, data: Partial<JournalNote>): Promise<void> {
+    await this.db.journalNotes.update(id, { ...data, updatedAt: Date.now() })
+  }
+
+  async deleteJournalNote(id: string): Promise<void> {
+    await this.db.journalNotes.delete(id)
   }
 
   // ── Species Sheets ───────────────────────────────────────────

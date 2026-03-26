@@ -1,4 +1,4 @@
-import type { AIService, AIMessage, BonsaiContext } from './AIService'
+import type { AIService, AIMessage, BonsaiContext, GeneralContext } from './AIService'
 import type { ClassNote, CareType, Care } from '../../db/schema'
 
 const CLAUDE_API_BASE = 'https://api.anthropic.com/v1'
@@ -81,6 +81,33 @@ export class ClaudeProvider implements AIService {
     const system = `You are NiwaMirî, an expert bonsai assistant.
 Tree: ${context.bonsai.name} (${context.bonsai.species}), status: ${context.bonsai.status}, season: ${context.season}.
 Respond in Spanish.`
+
+    const claudeMessages = messages.map((m) => ({
+      role: m.role,
+      content: m.imageBase64
+        ? [
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: m.imageBase64 } },
+            { type: 'text', text: m.content },
+          ]
+        : m.content,
+    }))
+
+    return this.complete(system, claudeMessages as Parameters<typeof this.complete>[1])
+  }
+
+  async chatGeneral(messages: AIMessage[], context: GeneralContext): Promise<string> {
+    const treeList = context.bonsais
+      .map((b) => `${b.name} (${b.commonName ?? b.species}, ${b.status})`)
+      .join(', ') || 'ninguno'
+    const notesSummary = context.recentJournalNotes.slice(0, 5)
+      .map((n) => `- ${n.title ? n.title + ': ' : ''}${n.content.slice(0, 120)}`)
+      .join('\n') || 'ninguna'
+
+    const system = `Sos NiwaMirî, asistente experto en bonsái con acceso a la colección completa del usuario.
+Colección (${context.bonsais.length} árboles): ${treeList}
+Estación actual: ${context.season}
+Notas recientes de bitácora:\n${notesSummary}
+Respondé en español. Sé conciso y útil.`
 
     const claudeMessages = messages.map((m) => ({
       role: m.role,
