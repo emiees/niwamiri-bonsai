@@ -168,9 +168,16 @@ export default function SpeciesSheet() {
 
       <div className="px-4 py-3">
         {bonsai && (
-          <p className="mb-3 text-sm" style={{ color: 'var(--text3)' }}>
-            <em>{bonsai.species}</em>
-          </p>
+          <div className="mb-3">
+            {bonsai.commonName && (
+              <p className="text-base font-semibold" style={{ color: 'var(--text1)' }}>
+                {bonsai.commonName}
+              </p>
+            )}
+            <p className="text-sm italic" style={{ color: 'var(--text3)' }}>
+              {bonsai.species}
+            </p>
+          </div>
         )}
 
         {/* Origin badge + generate button */}

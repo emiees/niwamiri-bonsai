@@ -564,15 +564,7 @@ export default function Inventory() {
         />
       )}
       {fabOpen && (
-        <div className="fixed bottom-[6.5rem] right-4 z-30 flex flex-col items-end gap-2">
-          <button
-            onClick={() => { setFabOpen(false); setPrefill(undefined); setShowAdd(true) }}
-            className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-lg"
-            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text1)' }}
-          >
-            <TreePine size={16} style={{ color: 'var(--color-accent)' }} />
-            {lang === 'es' ? 'Nuevo bonsai' : 'New bonsai'}
-          </button>
+        <div className="fixed bottom-40 right-4 z-30 flex flex-col items-end gap-2">
           <button
             onClick={() => { setFabOpen(false); navigate('/identify') }}
             className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-lg"
@@ -580,6 +572,14 @@ export default function Inventory() {
           >
             <Sparkles size={16} style={{ color: 'var(--color-accent)' }} />
             {lang === 'es' ? 'Identificar con IA' : 'Identify with AI'}
+          </button>
+          <button
+            onClick={() => { setFabOpen(false); setPrefill(undefined); setShowAdd(true) }}
+            className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-lg"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text1)' }}
+          >
+            <TreePine size={16} style={{ color: 'var(--color-accent)' }} />
+            {lang === 'es' ? 'Nuevo bonsai' : 'New bonsai'}
           </button>
         </div>
       )}
