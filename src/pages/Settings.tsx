@@ -386,7 +386,7 @@ export default function Settings() {
             </a>
           </Row>
           <Row last>
-            <RowLabel label="Impulsado por" />
+            <RowLabel label="Agradecimientos a" />
             <a
               href="https://www.instagram.com/gabrielmedinabonsai/"
               target="_blank"
