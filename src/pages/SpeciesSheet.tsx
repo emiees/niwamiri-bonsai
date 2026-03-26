@@ -10,6 +10,20 @@ import { useAppStore } from '@/store/appStore'
 import { createAIService } from '@/hooks/useAI'
 import type { SpeciesSheet as SpeciesSheetType, SheetOrigin } from '@/db/schema'
 
+function formatAIError(raw: string): string {
+  try {
+    const match = raw.match(/\{[\s\S]*\}/)
+    if (match) {
+      const parsed = JSON.parse(match[0])
+      const e = parsed?.error ?? parsed
+      if (e?.code || e?.message) {
+        return [e.code && `[${e.code}]`, e.message].filter(Boolean).join(' ')
+      }
+    }
+  } catch { /* ignorar */ }
+  return raw
+}
+
 const SHEET_FIELDS_ES = [
   'origen', 'clima', 'luz', 'riego', 'fertilizacion',
   'poda', 'trasplante', 'sustrato', 'plagas', 'observaciones',
@@ -31,6 +45,7 @@ export default function SpeciesSheet() {
   const [sheet, setSheet] = useState<SpeciesSheetType | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState<Record<string, string>>({})
 
@@ -47,6 +62,7 @@ export default function SpeciesSheet() {
   async function generateSheet() {
     if (!bonsai?.species || !config?.encryptedApiKey) return
     setGenerating(true)
+    setGenError(null)
     try {
       const svc = await createAIService(config.encryptedApiKey, config.aiProvider, config.aiModel)
       const content = await svc.generateSpeciesSheet(bonsai.species)
@@ -61,8 +77,9 @@ export default function SpeciesSheet() {
         })
       }
       await loadSheet()
-    } catch {
-      // silent
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err)
+      setGenError(formatAIError(raw))
     } finally {
       setGenerating(false)
     }
@@ -209,6 +226,18 @@ export default function SpeciesSheet() {
             </button>
           )}
         </div>
+
+        {genError && (
+          <div
+            className="mb-4 rounded-2xl px-4 py-3"
+            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)' }}
+          >
+            <p className="mb-1 text-xs font-semibold" style={{ color: '#ef4444' }}>
+              {lang === 'es' ? 'Error al generar la ficha' : 'Error generating sheet'}
+            </p>
+            <p className="text-xs font-mono leading-relaxed" style={{ color: '#f87171' }}>{genError}</p>
+          </div>
+        )}
 
         {loading ? (
           <p className="text-sm" style={{ color: 'var(--text3)' }}>{t('common.loading')}</p>

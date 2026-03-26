@@ -13,6 +13,20 @@ import { compressImage, base64ToDataUrl } from '@/utils/images'
 // ID especial para la conversación general (sin árbol)
 const GENERAL_CONVERSATION_ID = 'general'
 
+function formatAIError(raw: string): string {
+  try {
+    const match = raw.match(/\{[\s\S]*\}/)
+    if (match) {
+      const parsed = JSON.parse(match[0])
+      const e = parsed?.error ?? parsed
+      if (e?.code || e?.message) {
+        return [e.code && `[${e.code}]`, e.message].filter(Boolean).join(' ')
+      }
+    }
+  } catch { /* ignorar */ }
+  return raw
+}
+
 type Message = { role: 'user' | 'assistant'; content: string; imageBase64?: string; timestamp: number; isError?: boolean }
 
 export default function GeneralAssistant() {
@@ -205,7 +219,7 @@ export default function GeneralAssistant() {
                       {lang === 'es' ? 'Error de conexión con la IA' : 'AI connection error'}
                     </p>
                     <p className="text-xs leading-relaxed whitespace-pre-wrap font-mono" style={{ color: '#f87171' }}>
-                      {msg.content.split('\n\n').slice(1).join('\n\n') || msg.content}
+                      {formatAIError(msg.content.split('\n\n').slice(1).join('\n\n') || msg.content)}
                     </p>
                   </div>
                 ) : (

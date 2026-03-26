@@ -12,6 +12,20 @@ import { createAIService } from '@/hooks/useAI'
 import { compressImage, base64ToDataUrl } from '@/utils/images'
 type Message = { role: 'user' | 'assistant'; content: string; imageBase64?: string; timestamp: number; isError?: boolean }
 
+function formatAIError(raw: string): string {
+  try {
+    const match = raw.match(/\{[\s\S]*\}/)
+    if (match) {
+      const parsed = JSON.parse(match[0])
+      const e = parsed?.error ?? parsed
+      if (e?.code || e?.message) {
+        return [e.code && `[${e.code}]`, e.message].filter(Boolean).join(' ')
+      }
+    }
+  } catch { /* ignorar */ }
+  return raw
+}
+
 export default function AIAssistant() {
   const { id: bonsaiId } = useParams<{ id: string }>()
   const { t, i18n } = useTranslation()
@@ -192,7 +206,7 @@ export default function AIAssistant() {
                       {lang === 'es' ? 'Error de conexión con la IA' : 'AI connection error'}
                     </p>
                     <p className="text-xs leading-relaxed whitespace-pre-wrap font-mono" style={{ color: '#f87171' }}>
-                      {msg.content.split('\n\n').slice(1).join('\n\n') || msg.content}
+                      {formatAIError(msg.content.split('\n\n').slice(1).join('\n\n') || msg.content)}
                     </p>
                   </div>
                 ) : (
@@ -267,7 +281,7 @@ export default function AIAssistant() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
                 }}
-                placeholder={t('ai.placeholder')}
+                placeholder={lang === 'es' ? 'Escribí tu consulta…' : 'Write your question…'}
                 rows={1}
                 className="flex-1 resize-none rounded-2xl px-4 py-2.5 text-sm focus:outline-none"
                 style={{
