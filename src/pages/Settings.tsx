@@ -371,6 +371,16 @@ export default function Settings() {
         <Section title="Acerca de">
           <Row>
             <RowLabel label="Aplicación" sublabel="NiwaMirî v1.0" />
+            <a
+              href="https://emiees.github.io/niwamiri-bonsai/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs font-medium"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              Ver app
+              <ExternalLink size={11} />
+            </a>
           </Row>
           <Row>
             <RowLabel label="Desarrollador" sublabel="Emi Salazar" />
@@ -383,6 +393,19 @@ export default function Settings() {
               style={{ color: 'var(--color-accent)' }}
             >
               emilianoesalazar@gmail.com
+            </a>
+          </Row>
+          <Row>
+            <RowLabel label="Documentación" sublabel="Guías de uso y referencia" />
+            <a
+              href="https://github.com/emiees/niwamiri-bonsai/wiki"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs font-medium"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              Wiki
+              <ExternalLink size={11} />
             </a>
           </Row>
           <Row last>
