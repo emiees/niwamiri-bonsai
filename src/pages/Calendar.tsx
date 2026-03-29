@@ -14,8 +14,13 @@ const EVENT_COLORS: Record<CalendarEvent['type'], string> = {
   'care': '#22c55e',
   'manual-reminder': '#eab308',
   'followup-reminder': '#f97316',
-  'ai-suggestion': '#a855f7',
+  'ai-suggestion': '#a855f7', // reservado, sin uso activo
 }
+
+// Colores que se muestran al usuario (sin ai-suggestion por no estar implementado)
+const VISIBLE_EVENT_COLORS = Object.entries(EVENT_COLORS).filter(
+  ([type]) => type !== 'ai-suggestion'
+) as [CalendarEvent['type'], string][]
 
 // ── Add reminder sheet ──────────────────────────────────────────
 
@@ -24,22 +29,24 @@ function AddReminderSheet({
   onClose,
   onSaved,
   editing,
+  initialDate,
 }: {
   bonsais: { id: string; name: string }[]
   onClose: () => void
   onSaved: () => void
   editing?: CalendarEvent
+  initialDate?: string
 }) {
   const { t, i18n } = useTranslation()
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
   const { addEvent, updateEvent, deleteEvent } = useCalendarStore()
 
   const today = new Date()
-  const defaultDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
 
   const editDate = editing
     ? (() => { const d = new Date(editing.date); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
-    : defaultDate
+    : (initialDate ?? todayStr)
 
   const [title, setTitle] = useState(editing?.title ?? '')
   const [date, setDate] = useState(editDate)
@@ -52,7 +59,7 @@ function AddReminderSheet({
     if (editing) {
       await updateEvent(editing.id, {
         title: title.trim(),
-        date: new Date(date).getTime(),
+        date: new Date(date + 'T12:00:00').getTime(),
         bonsaiId: bonsaiId || undefined,
       })
     } else {
@@ -60,7 +67,7 @@ function AddReminderSheet({
         bonsaiId: bonsaiId || undefined,
         type: 'manual-reminder',
         title: title.trim(),
-        date: new Date(date).getTime(),
+        date: new Date(date + 'T12:00:00').getTime(),
         completed: false,
       })
     }
@@ -389,7 +396,7 @@ export default function Calendar() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {ev.type === 'manual-reminder' && !ev.completed && (
+          {(ev.type === 'manual-reminder' || ev.type === 'followup-reminder') && !ev.completed && (
             <button
               onClick={() => setEditingEvent(ev)}
               className="flex items-center gap-1 rounded-xl px-2 py-1 text-xs"
@@ -481,7 +488,7 @@ export default function Calendar() {
           {/* Filter chips */}
           <div className="flex flex-col gap-2 px-4">
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {(['all', 'care', 'manual-reminder', 'followup-reminder', 'ai-suggestion'] as const).map((type) => (
+              {(['all', 'care', 'manual-reminder', 'followup-reminder'] as const).map((type) => (
                 <button
                   key={type}
                   onClick={() => setFilterType(type)}
@@ -595,7 +602,7 @@ export default function Calendar() {
 
       {/* Color legend */}
       <div className="flex flex-wrap gap-3 px-4 py-2 pb-4">
-        {Object.entries(EVENT_COLORS).map(([type, color]) => (
+        {VISIBLE_EVENT_COLORS.map(([type, color]) => (
           <div key={type} className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full" style={{ background: color }} />
             <span className="text-[10px]" style={{ color: 'var(--text3)' }}>
@@ -618,6 +625,7 @@ export default function Calendar() {
         <AddReminderSheet
           bonsais={bonsais.map((b) => ({ id: b.id, name: b.name }))}
           editing={editingEvent ?? undefined}
+          initialDate={showAdd && selectedDay ? selectedDay : undefined}
           onClose={() => { setShowAdd(false); setEditingEvent(null) }}
           onSaved={() => {
             setShowAdd(false)

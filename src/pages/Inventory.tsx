@@ -8,7 +8,7 @@ import BonsaiCard from '@/components/bonsai/BonsaiCard'
 import { useBonsaiStore } from '@/store/bonsaiStore'
 import { storageService } from '@/services/storage/DexieStorageService'
 import { useSeason } from '@/hooks/useSeason'
-import type { BonsaiStatus, BonsaiStyle } from '@/db/schema'
+import type { BonsaiStatus, BonsaiStyle, BonsaiSize } from '@/db/schema'
 
 // ── Season chip config ──────────────────────────────────────────
 
@@ -25,6 +25,16 @@ const STYLES: BonsaiStyle[] = [
   'chokkan', 'moyogi', 'shakan', 'kengai', 'han-kengai',
   'hokidachi', 'fukinagashi', 'yose-ue', 'literati', 'other',
 ]
+
+const SIZES: BonsaiSize[] = ['shito', 'mame', 'shohin', 'chuhin', 'dai']
+
+const SIZE_RANGES: Record<BonsaiSize, string> = {
+  shito:  '< 5 cm',
+  mame:   '5–15 cm',
+  shohin: '15–25 cm',
+  chuhin: '25–45 cm',
+  dai:    '> 45 cm',
+}
 
 function AddBonsaiSheet({
   existingSpecies,
@@ -46,6 +56,7 @@ function AddBonsaiSheet({
   const [commonName, setCommonName] = useState(prefill?.commonName ?? '')
   const [status, setStatus] = useState<BonsaiStatus>('developing')
   const [style, setStyle] = useState<BonsaiStyle | ''>('')
+  const [size, setSize] = useState<BonsaiSize | ''>('')
   const [germinationYear, setGerminationYear] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
@@ -78,6 +89,7 @@ function AddBonsaiSheet({
         commonName: commonName.trim() || undefined,
         status,
         style: style || undefined,
+        size: size as BonsaiSize || undefined,
         germinationYear: germinationYear ? parseInt(germinationYear) : undefined,
         tags: tags.length > 0 ? tags : undefined,
       })
@@ -270,6 +282,30 @@ function AddBonsaiSheet({
                   </button>
                 )
               })}
+            </div>
+          </div>
+
+          {/* Size */}
+          <div>
+            <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
+              {lang === 'es' ? 'Tamaño (opcional)' : 'Size (optional)'}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {SIZES.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSize(size === s ? '' : s)}
+                  className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium"
+                  style={{
+                    background: size === s ? 'var(--color-accent)' : 'var(--card)',
+                    color: size === s ? 'var(--green1)' : 'var(--text2)',
+                    border: `1px solid ${size === s ? 'var(--color-accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  <span className="block">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
+                  <span className="block text-[10px] italic opacity-60">{SIZE_RANGES[s]}</span>
+                </button>
+              ))}
             </div>
           </div>
 

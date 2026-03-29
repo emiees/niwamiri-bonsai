@@ -14,7 +14,7 @@ export type BonsaiStyle =
   | 'yose-ue'
   | 'literati'
   | 'other'
-export type BonsaiSize = 'mame' | 'shohin' | 'chuhin' | 'dai'
+export type BonsaiSize = 'shito' | 'mame' | 'shohin' | 'chuhin' | 'dai'
 export type BonsaiOrigin = 'prebonsai' | 'yamadori' | 'seed' | 'cutting' | 'gift' | 'purchase'
 
 export type CareType =

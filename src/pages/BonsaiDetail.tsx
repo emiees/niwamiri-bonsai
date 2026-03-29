@@ -74,8 +74,16 @@ const STYLES: BonsaiStyle[] = [
   'hokidachi', 'fukinagashi', 'yose-ue', 'literati', 'other',
 ]
 const ORIGINS: BonsaiOrigin[] = ['prebonsai', 'yamadori', 'seed', 'cutting', 'gift', 'purchase']
-const SIZES: BonsaiSize[] = ['mame', 'shohin', 'chuhin', 'dai']
+const SIZES: BonsaiSize[] = ['shito', 'mame', 'shohin', 'chuhin', 'dai']
 const STATUSES: BonsaiStatus[] = ['developing', 'maintenance', 'recovery', 'donated', 'dead']
+
+const SIZE_RANGES: Record<BonsaiSize, string> = {
+  shito:  '< 5 cm',
+  mame:   '5–15 cm',
+  shohin: '15–25 cm',
+  chuhin: '25–45 cm',
+  dai:    '> 45 cm',
+}
 
 function EditSheet({
   bonsai,
@@ -158,7 +166,7 @@ function EditSheet({
     options: T[],
     current: T | '',
     set: (v: T | '') => void,
-    labelFn: (v: T) => string,
+    labelFn: (v: T) => React.ReactNode,
   ) => (
     <div className="flex flex-wrap gap-2">
       {options.map((opt) => (
@@ -214,13 +222,29 @@ function EditSheet({
             chipRow(STATUSES, status, (v) => setStatus(v as BonsaiStatus || 'developing'), (v) => t(`status.${v}`))
           )}
           {field(lang === 'es' ? 'Estilo' : 'Style',
-            chipRow(STYLES, style as BonsaiStyle, (v) => setStyle(v), (v) => t(`style.${v}`).split(' ')[0])
+            chipRow(STYLES, style as BonsaiStyle, (v) => setStyle(v), (v) => {
+              const fullLabel = t(`style.${v}`)
+              const parenIdx = fullLabel.indexOf(' (')
+              const jaName = parenIdx !== -1 ? fullLabel.slice(0, parenIdx) : fullLabel
+              const esName = parenIdx !== -1 ? fullLabel.slice(parenIdx + 2, -1) : null
+              return (
+                <>
+                  <span className="block">{jaName}</span>
+                  {esName && <span className="block text-[10px] italic opacity-60">{esName}</span>}
+                </>
+              )
+            })
           )}
           {field(lang === 'es' ? 'Origen' : 'Origin',
             chipRow(ORIGINS, origin as BonsaiOrigin, (v) => setOrigin(v), (v) => t(`origin.${v}`))
           )}
           {field(lang === 'es' ? 'Tamaño' : 'Size',
-            chipRow(SIZES, size as BonsaiSize, (v) => setSize(v), (v) => t(`size.${v}`))
+            chipRow(SIZES, size as BonsaiSize, (v) => setSize(v), (v) => (
+              <>
+                <span className="block">{t(`size.${v}`)}</span>
+                <span className="block text-[10px] italic opacity-60">{SIZE_RANGES[v]}</span>
+              </>
+            ))
           )}
           {field(lang === 'es' ? 'Año de germinación' : 'Germination year',
             <input type="number" value={germinationYear} onChange={(e) => setGerminationYear(e.target.value)}

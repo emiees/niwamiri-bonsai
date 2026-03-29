@@ -136,9 +136,10 @@ body {
 
 /* ── Inputs — fixes móvil ───────────────────────────────────── */
 
-/* Evita zoom automático en iOS al hacer foco en inputs (font-size < 16px) */
+/* Evita zoom automático en iOS al hacer foco en inputs (font-size < 16px).
+   !important necesario para ganarle a las clases de Tailwind (text-sm, text-xs). */
 input, textarea, select {
-  font-size: max(16px, 1em);
+  font-size: max(16px, 1em) !important;
 }
 
 /* Date inputs: fuerza que respeten el ancho del contenedor */
