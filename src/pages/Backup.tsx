@@ -78,7 +78,7 @@ export default function Backup() {
 
   return (
     <AppShell showNav={false}>
-      <Header title={t('backup.title')} showBack />
+      <Header title={t('backup.title')} showBack hideSettings />
 
       <div className="flex flex-col gap-4 px-4 py-4">
         {/* Export */}

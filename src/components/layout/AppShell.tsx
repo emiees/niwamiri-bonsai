@@ -30,10 +30,10 @@ export default function AppShell({ children, showNav = true, className }: AppShe
       <main
         className={cn(
           'min-h-screen overflow-y-auto',
-          'pt-14',                    // clear the fixed Header
           showNav ? 'pb-20' : 'pb-4', // clear BottomNav or add minimal padding
           className
         )}
+        style={{ paddingTop: 'calc(3.5rem + env(safe-area-inset-top))' }}
       >
         {children}
       </main>

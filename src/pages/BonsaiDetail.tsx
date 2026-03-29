@@ -92,6 +92,7 @@ function EditSheet({
 
   const [name, setName] = useState(bonsai.name)
   const [species, setSpecies] = useState(bonsai.species)
+  const [commonName, setCommonName] = useState(bonsai.commonName ?? '')
   const [status, setStatus] = useState<BonsaiStatus>(bonsai.status)
   const [style, setStyle] = useState<BonsaiStyle | ''>(bonsai.style ?? '')
   const [origin, setOrigin] = useState<BonsaiOrigin | ''>(bonsai.origin ?? '')
@@ -122,6 +123,7 @@ function EditSheet({
     await updateBonsai(bonsai.id, {
       name: name.trim(),
       species: species.trim(),
+      commonName: commonName.trim() || undefined,
       status,
       style: style || undefined,
       origin: origin as BonsaiOrigin || undefined,
@@ -207,6 +209,7 @@ function EditSheet({
         <div className="flex flex-col gap-4 overflow-y-auto px-5 pb-8">
           {field(lang === 'es' ? 'Nombre / Apodo *' : 'Name / Nickname *', textInput(name, setName))}
           {field(lang === 'es' ? 'Especie *' : 'Species *', textInput(species, setSpecies, 'Ficus retusa'))}
+          {field(lang === 'es' ? 'Nombre común' : 'Common name', textInput(commonName, setCommonName, lang === 'es' ? 'Ej: Ficus, Olmo chino...' : 'E.g. Ficus, Chinese Elm...'))}
           {field(lang === 'es' ? 'Estado' : 'Status',
             chipRow(STATUSES, status, (v) => setStatus(v as BonsaiStatus || 'developing'), (v) => t(`status.${v}`))
           )}
@@ -292,6 +295,7 @@ export default function BonsaiDetail() {
   const [mainPhoto, setMainPhoto] = useState<string | null>(null)
   const [showEdit, setShowEdit] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [fabOpen, setFabOpen] = useState(false)
 
   const loadData = useCallback(async () => {
     if (!id) return
@@ -648,11 +652,45 @@ export default function BonsaiDetail() {
 
       <div className="pb-4" />
 
-      {/* FAB */}
+      {/* FAB expandible */}
+      {fabOpen && (
+        <div className="fixed inset-0 z-20" onClick={() => setFabOpen(false)} />
+      )}
+      {fabOpen && (
+        <div className="fixed bottom-24 right-4 z-30 flex flex-col items-end gap-2">
+          <button
+            onClick={() => { setFabOpen(false); navigate(`/bonsai/${id}/gallery`) }}
+            className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-lg"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text1)' }}
+          >
+            <Camera size={16} style={{ color: 'var(--color-accent)' }} />
+            {lang === 'es' ? 'Agregar foto' : 'Add photo'}
+          </button>
+          <button
+            onClick={() => { setFabOpen(false); navigate(`/bonsai/${id}/notes`) }}
+            className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-lg"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text1)' }}
+          >
+            <BookOpen size={16} style={{ color: 'var(--color-accent)' }} />
+            {lang === 'es' ? 'Agregar nota de clase' : 'Add class note'}
+          </button>
+          <button
+            onClick={() => { setFabOpen(false); navigate(`/bonsai/${id}/care`) }}
+            className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-lg"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text1)' }}
+          >
+            <Scissors size={16} style={{ color: 'var(--color-accent)' }} />
+            {lang === 'es' ? 'Agregar cuidado' : 'Add care'}
+          </button>
+        </div>
+      )}
       <button
-        onClick={() => navigate(`/bonsai/${id}/care`)}
-        className="fixed bottom-6 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full shadow-lg"
-        style={{ background: 'var(--color-accent)' }}
+        onClick={() => setFabOpen((v) => !v)}
+        className="fixed bottom-6 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform"
+        style={{
+          background: 'var(--color-accent)',
+          transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+        }}
         aria-label={t('bonsaiDetail.addCare')}
       >
         <Plus size={24} style={{ color: 'var(--green1)' }} />

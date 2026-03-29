@@ -234,7 +234,7 @@ export default function Settings() {
 
   return (
     <AppShell showNav>
-      <Header title={t('settings.title')} />
+      <Header title={t('settings.title')} hideSettings />
 
       <div className="py-2">
         {/* ── Apariencia ────────────────────────────── */}

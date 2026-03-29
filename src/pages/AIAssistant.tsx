@@ -205,7 +205,7 @@ export default function AIAssistant() {
                     <p className="mb-1.5 text-xs font-semibold" style={{ color: '#ef4444' }}>
                       {lang === 'es' ? 'Error de conexión con la IA' : 'AI connection error'}
                     </p>
-                    <p className="text-xs leading-relaxed whitespace-pre-wrap font-mono" style={{ color: '#f87171' }}>
+                    <p className="text-xs leading-relaxed whitespace-pre-wrap font-mono error-text" style={{ color: '#f87171' }}>
                       {formatAIError(msg.content.split('\n\n').slice(1).join('\n\n') || msg.content)}
                     </p>
                   </div>

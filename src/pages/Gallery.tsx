@@ -45,6 +45,8 @@ export default function Gallery() {
   const [deleting, setDeleting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [pendingPhoto, setPendingPhoto] = useState<{ b64: string; date: string } | null>(null)
+  const [editingDesc, setEditingDesc] = useState(false)
+  const [descInput, setDescInput] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const todayISO = new Date().toISOString().split('T')[0]
@@ -263,7 +265,7 @@ export default function Gallery() {
         >
           <div className="flex items-center justify-between px-4 py-3">
             <p className="text-sm text-white/70">{formatDate(selected.takenAt)}</p>
-            <button onClick={() => setSelected(null)}>
+            <button onClick={() => { setSelected(null); setEditingDesc(false) }}>
               <X size={22} color="white" />
             </button>
           </div>
@@ -274,10 +276,52 @@ export default function Gallery() {
               className="max-h-full max-w-full rounded-xl object-contain"
             />
           </div>
-          {selected.description && (
-            <p className="px-4 py-2 text-sm text-white/70">{selected.description}</p>
-          )}
-          <div className="flex gap-3 px-4 pb-10 pt-4">
+
+          {/* Descripción editable */}
+          <div className="px-4 py-2">
+            {editingDesc ? (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={descInput}
+                  onChange={(e) => setDescInput(e.target.value)}
+                  placeholder={lang === 'es' ? 'Descripción de la foto...' : 'Photo description...'}
+                  className="flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}
+                  autoFocus
+                />
+                <button
+                  onClick={async () => {
+                    await storageService.updatePhoto(selected.id, { description: descInput.trim() || undefined })
+                    setSelected({ ...selected, description: descInput.trim() || undefined })
+                    setEditingDesc(false)
+                    await loadPhotos()
+                  }}
+                  className="rounded-xl px-3 py-2 text-sm font-medium"
+                  style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
+                >
+                  <Check size={16} />
+                </button>
+                <button
+                  onClick={() => setEditingDesc(false)}
+                  className="rounded-xl px-3 py-2 text-sm"
+                  style={{ color: 'rgba(255,255,255,0.5)' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setDescInput(selected.description ?? ''); setEditingDesc(true) }}
+                className="text-sm"
+                style={{ color: selected.description ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }}
+              >
+                {selected.description ?? (lang === 'es' ? '+ Agregar descripción' : '+ Add description')}
+              </button>
+            )}
+          </div>
+
+          <div className="flex gap-3 px-4 pb-10 pt-2">
             <button
               onClick={() => handleSetMain(selected)}
               className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"

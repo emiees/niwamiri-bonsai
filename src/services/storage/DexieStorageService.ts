@@ -92,6 +92,10 @@ export class DexieStorageService implements StorageService {
     return id
   }
 
+  async updatePhoto(id: string, data: Partial<Photo>): Promise<void> {
+    await this.db.photos.update(id, data)
+  }
+
   async deletePhoto(id: string): Promise<void> {
     await this.db.photos.delete(id)
   }
@@ -162,6 +166,10 @@ export class DexieStorageService implements StorageService {
 
   async getEventsByDateRange(from: number, to: number): Promise<CalendarEvent[]> {
     return this.db.events.where('date').between(from, to, true, true).toArray()
+  }
+
+  async getEventsByBonsai(bonsaiId: string): Promise<CalendarEvent[]> {
+    return this.db.events.where('bonsaiId').equals(bonsaiId).toArray()
   }
 
   async saveEvent(event: Omit<CalendarEvent, 'id' | 'createdAt'>): Promise<string> {

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, Plus, Check, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Check, X, Edit2 } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { useCalendarStore } from '@/store/calendarStore'
@@ -23,33 +23,54 @@ function AddReminderSheet({
   bonsais,
   onClose,
   onSaved,
+  editing,
 }: {
   bonsais: { id: string; name: string }[]
   onClose: () => void
   onSaved: () => void
+  editing?: CalendarEvent
 }) {
   const { t, i18n } = useTranslation()
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
-  const { addEvent } = useCalendarStore()
+  const { addEvent, updateEvent, deleteEvent } = useCalendarStore()
 
   const today = new Date()
   const defaultDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
 
-  const [title, setTitle] = useState('')
-  const [date, setDate] = useState(defaultDate)
-  const [bonsaiId, setBonsaiId] = useState('')
+  const editDate = editing
+    ? (() => { const d = new Date(editing.date); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
+    : defaultDate
+
+  const [title, setTitle] = useState(editing?.title ?? '')
+  const [date, setDate] = useState(editDate)
+  const [bonsaiId, setBonsaiId] = useState(editing?.bonsaiId ?? '')
   const [saving, setSaving] = useState(false)
 
   async function save() {
     if (!title.trim()) return
     setSaving(true)
-    await addEvent({
-      bonsaiId: bonsaiId || undefined,
-      type: 'manual-reminder',
-      title: title.trim(),
-      date: new Date(date).getTime(),
-      completed: false,
-    })
+    if (editing) {
+      await updateEvent(editing.id, {
+        title: title.trim(),
+        date: new Date(date).getTime(),
+        bonsaiId: bonsaiId || undefined,
+      })
+    } else {
+      await addEvent({
+        bonsaiId: bonsaiId || undefined,
+        type: 'manual-reminder',
+        title: title.trim(),
+        date: new Date(date).getTime(),
+        completed: false,
+      })
+    }
+    onSaved()
+  }
+
+  async function handleDelete() {
+    if (!editing) return
+    setSaving(true)
+    await deleteEvent(editing.id)
     onSaved()
   }
 
@@ -65,9 +86,21 @@ function AddReminderSheet({
         </div>
         <div className="flex items-center justify-between px-5 py-3">
           <h2 className="text-base font-semibold" style={{ color: 'var(--text1)' }}>
-            {lang === 'es' ? 'Nuevo recordatorio' : 'New reminder'}
+            {editing
+              ? (lang === 'es' ? 'Editar recordatorio' : 'Edit reminder')
+              : (lang === 'es' ? 'Nuevo recordatorio' : 'New reminder')}
           </h2>
           <div className="flex gap-2">
+            {editing && (
+              <button
+                onClick={handleDelete}
+                disabled={saving}
+                className="rounded-xl px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+                style={{ color: '#ef4444' }}
+              >
+                {t('common.delete')}
+              </button>
+            )}
             <button onClick={onClose} className="rounded-xl px-3 py-1.5 text-sm" style={{ color: 'var(--text2)' }}>
               {t('common.cancel')}
             </button>
@@ -225,8 +258,10 @@ export default function Calendar() {
   const [viewMonth, setViewMonth] = useState(today.getMonth())
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
   const [filterType, setFilterType] = useState<CalendarEvent['type'] | 'all'>('all')
   const [filterBonsaiId, setFilterBonsaiId] = useState<string>('')
+  const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => { fetchBonsais() }, [fetchBonsais])
 
@@ -236,9 +271,9 @@ export default function Calendar() {
       const to = new Date(viewYear, viewMonth + 1, 0, 23, 59, 59).getTime()
       fetchEvents(from, to)
     } else {
-      const from = Date.now()
-      const to = from + 30 * 24 * 60 * 60 * 1000
-      fetchEvents(from, to)
+      // Vista lista: incluye todo el pasado (para vencidos) + 30 días hacia adelante
+      const to = Date.now() + 30 * 24 * 60 * 60 * 1000
+      fetchEvents(0, to)
     }
   }, [view, viewYear, viewMonth, fetchEvents])
 
@@ -256,23 +291,46 @@ export default function Calendar() {
 
   const selectedEvents = selectedDay ? (eventsByDate[selectedDay] ?? []) : []
 
-  // 30-day list: group by date (with filters)
-  const listGroups = useMemo(() => {
-    const filtered = events.filter((ev) => {
+  // Vista lista: agrupa eventos separando vencidos de próximos
+  const { overdueGroups, upcomingGroups, historyGroups } = useMemo(() => {
+    const now = Date.now()
+
+    function applyFilters(ev: CalendarEvent) {
       if (filterType !== 'all' && ev.type !== filterType) return false
       if (filterBonsaiId && ev.bonsaiId !== filterBonsaiId) return false
       return true
-    })
-    const sorted = [...filtered].sort((a, b) => a.date - b.date)
-    const groups: { dateKey: string; events: CalendarEvent[] }[] = []
-    for (const ev of sorted) {
+    }
+
+    function groupByDate(evs: CalendarEvent[]) {
+      const sorted = [...evs].sort((a, b) => a.date - b.date)
+      const groups: { dateKey: string; events: CalendarEvent[] }[] = []
+      for (const ev of sorted) {
+        const d = new Date(ev.date)
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+        const g = groups.find((g) => g.dateKey === key)
+        if (g) g.events.push(ev)
+        else groups.push({ dateKey: key, events: [ev] })
+      }
+      return groups
+    }
+
+    // Vencidos: pasado, sin completar, respeta filtros
+    const overdue = events.filter((ev) => ev.date < now && !ev.completed && applyFilters(ev))
+    // Próximos: desde ahora, todos (completados o no), respeta filtros
+    const upcoming = events.filter((ev) => ev.date >= now && applyFilters(ev))
+    // Historial: pasado, completados, respeta filtros — orden cronológico inverso
+    const historyEvs = events.filter((ev) => ev.date < now && ev.completed && applyFilters(ev))
+    const historySorted = [...historyEvs].sort((a, b) => b.date - a.date)
+    const historyGroups: { dateKey: string; events: CalendarEvent[] }[] = []
+    for (const ev of historySorted) {
       const d = new Date(ev.date)
       const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-      const g = groups.find((g) => g.dateKey === key)
+      const g = historyGroups.find((g) => g.dateKey === key)
       if (g) g.events.push(ev)
-      else groups.push({ dateKey: key, events: [ev] })
+      else historyGroups.push({ dateKey: key, events: [ev] })
     }
-    return groups
+
+    return { overdueGroups: groupByDate(overdue), upcomingGroups: groupByDate(upcoming), historyGroups }
   }, [events, filterType, filterBonsaiId])
 
   const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -292,7 +350,7 @@ export default function Calendar() {
     setSelectedDay(null)
   }
 
-  const EventRow = ({ ev }: { ev: CalendarEvent }) => {
+  const EventRow = ({ ev, overdue = false }: { ev: CalendarEvent; overdue?: boolean }) => {
     const bonsai = bonsais.find((b) => b.id === ev.bonsaiId)
     return (
       <div
@@ -301,18 +359,28 @@ export default function Calendar() {
       >
         <div
           className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full"
-          style={{ background: EVENT_COLORS[ev.type] }}
+          style={{ background: overdue ? '#ef4444' : EVENT_COLORS[ev.type] }}
         />
         <div className="flex-1 min-w-0">
-          <p
-            className="text-sm font-medium"
-            style={{
-              color: 'var(--text1)',
-              textDecoration: ev.completed ? 'line-through' : 'none',
-            }}
-          >
-            {ev.title}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p
+              className="text-sm font-medium"
+              style={{
+                color: 'var(--text1)',
+                textDecoration: ev.completed ? 'line-through' : 'none',
+              }}
+            >
+              {ev.title}
+            </p>
+            {overdue && (
+              <span
+                className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+              >
+                {lang === 'es' ? 'VENCIDO' : 'OVERDUE'}
+              </span>
+            )}
+          </div>
           {bonsai && (
             <p className="text-xs" style={{ color: 'var(--text3)' }}>{bonsai.name}</p>
           )}
@@ -320,15 +388,26 @@ export default function Calendar() {
             {t(`calendar.eventTypes.${ev.type}`)}
           </p>
         </div>
-        {!ev.completed && (
-          <button
-            onClick={() => updateEvent(ev.id, { completed: true })}
-            className="shrink-0 flex items-center gap-1 rounded-xl px-2 py-1 text-xs"
-            style={{ background: 'var(--bg3)', color: 'var(--text3)' }}
-          >
-            <Check size={12} />
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-1">
+          {ev.type === 'manual-reminder' && !ev.completed && (
+            <button
+              onClick={() => setEditingEvent(ev)}
+              className="flex items-center gap-1 rounded-xl px-2 py-1 text-xs"
+              style={{ background: 'var(--bg3)', color: 'var(--text3)' }}
+            >
+              <Edit2 size={11} />
+            </button>
+          )}
+          {!ev.completed && (
+            <button
+              onClick={() => updateEvent(ev.id, { completed: true })}
+              className="flex items-center gap-1 rounded-xl px-2 py-1 text-xs"
+              style={{ background: 'var(--bg3)', color: 'var(--text3)' }}
+            >
+              <Check size={12} />
+            </button>
+          )}
+        </div>
       </div>
     )
   }
@@ -449,12 +528,58 @@ export default function Calendar() {
           </div>
 
           <div className="flex flex-col px-4 gap-4">
-          {listGroups.length === 0 ? (
-            <p className="py-20 text-center text-sm" style={{ color: 'var(--text3)' }}>
-              {t('calendar.noEvents')}
-            </p>
-          ) : (
-            listGroups.map((group) => (
+            {/* Sección vencidos */}
+            {overdueGroups.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#ef4444' }}>
+                  {lang === 'es' ? '⚠ Vencidos' : '⚠ Overdue'}
+                </p>
+                {overdueGroups.map((group) => (
+                  <div key={group.dateKey}>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text3)' }}>
+                      {formatDate(new Date(group.dateKey + 'T12:00:00').getTime())}
+                    </p>
+                    <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--card)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                      {group.events.map((ev) => <EventRow key={ev.id} ev={ev} overdue />)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Sección próximos 30 días */}
+            {upcomingGroups.length === 0 && overdueGroups.length === 0 && !showHistory ? (
+              <p className="py-20 text-center text-sm" style={{ color: 'var(--text3)' }}>
+                {t('calendar.noEvents')}
+              </p>
+            ) : (
+              upcomingGroups.map((group) => (
+                <div key={group.dateKey}>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text3)' }}>
+                    {formatDate(new Date(group.dateKey + 'T12:00:00').getTime())}
+                  </p>
+                  <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+                    {group.events.map((ev) => <EventRow key={ev.id} ev={ev} />)}
+                  </div>
+                </div>
+              ))
+            )}
+
+            {/* Toggle historial */}
+            {historyGroups.length > 0 && (
+              <button
+                onClick={() => setShowHistory((v) => !v)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
+                style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}
+              >
+                {showHistory
+                  ? (lang === 'es' ? 'Ocultar historial' : 'Hide history')
+                  : (lang === 'es' ? `Ver historial (${historyGroups.reduce((n, g) => n + g.events.length, 0)} completados)` : `Show history (${historyGroups.reduce((n, g) => n + g.events.length, 0)} completed)`)}
+              </button>
+            )}
+
+            {/* Historial: completados en el pasado */}
+            {showHistory && historyGroups.map((group) => (
               <div key={group.dateKey}>
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text3)' }}>
                   {formatDate(new Date(group.dateKey + 'T12:00:00').getTime())}
@@ -463,8 +588,7 @@ export default function Calendar() {
                   {group.events.map((ev) => <EventRow key={ev.id} ev={ev} />)}
                 </div>
               </div>
-            ))
-          )}
+            ))}
           </div>
         </div>
       )}
@@ -490,18 +614,20 @@ export default function Calendar() {
         <Plus size={24} style={{ color: 'var(--green1)' }} />
       </button>
 
-      {showAdd && (
+      {(showAdd || editingEvent) && (
         <AddReminderSheet
           bonsais={bonsais.map((b) => ({ id: b.id, name: b.name }))}
-          onClose={() => setShowAdd(false)}
+          editing={editingEvent ?? undefined}
+          onClose={() => { setShowAdd(false); setEditingEvent(null) }}
           onSaved={() => {
             setShowAdd(false)
+            setEditingEvent(null)
             if (view === 'month') {
               const from = new Date(viewYear, viewMonth, 1).getTime()
               const to = new Date(viewYear, viewMonth + 1, 0, 23, 59, 59).getTime()
               fetchEvents(from, to)
             } else {
-              fetchEvents(Date.now(), Date.now() + 30 * 24 * 60 * 60 * 1000)
+              fetchEvents(0, Date.now() + 30 * 24 * 60 * 60 * 1000)
             }
           }}
         />

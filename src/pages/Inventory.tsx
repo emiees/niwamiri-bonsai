@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LayoutGrid, List, Plus, X, TreePine, Settings, Sparkles } from 'lucide-react'
+import { LayoutGrid, List, Plus, X, TreePine, Sparkles } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import BonsaiCard from '@/components/bonsai/BonsaiCard'
@@ -404,24 +404,14 @@ export default function Inventory() {
       <Header
         title={t('inventory.title')}
         actions={
-          <>
-            <button
-              onClick={() => setView((v) => (v === 'grid' ? 'list' : 'grid'))}
-              className="rounded-full p-2"
-              style={{ color: 'var(--text2)' }}
-              aria-label={view === 'grid' ? 'List view' : 'Grid view'}
-            >
-              {view === 'grid' ? <List size={20} /> : <LayoutGrid size={20} />}
-            </button>
-            <button
-              onClick={() => navigate('/settings')}
-              className="rounded-full p-2"
-              style={{ color: 'var(--text2)' }}
-              aria-label="Ajustes"
-            >
-              <Settings size={20} />
-            </button>
-          </>
+          <button
+            onClick={() => setView((v) => (v === 'grid' ? 'list' : 'grid'))}
+            className="rounded-full p-2"
+            style={{ color: 'var(--text2)' }}
+            aria-label={view === 'grid' ? 'List view' : 'Grid view'}
+          >
+            {view === 'grid' ? <List size={20} /> : <LayoutGrid size={20} />}
+          </button>
         }
       />
 

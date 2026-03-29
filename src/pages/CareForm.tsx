@@ -151,7 +151,15 @@ export default function CareForm() {
           ? { date: new Date(reminderDate).getTime(), description: reminderDesc }
           : undefined,
       }
-      if (isEdit && careId) await storageService.deleteCare(careId)
+      if (isEdit && careId) {
+        // Al editar, eliminar el recordatorio anterior no completado para evitar duplicados
+        const existingEvents = await storageService.getEventsByBonsai(bonsaiId)
+        const oldReminder = existingEvents.find(
+          (e) => e.type === 'followup-reminder' && !e.completed && e.careType === type
+        )
+        if (oldReminder) await storageService.deleteEvent(oldReminder.id)
+        await storageService.deleteCare(careId)
+      }
       const savedCareId = await storageService.saveCare(careData)
 
       for (const imageData of photos) {

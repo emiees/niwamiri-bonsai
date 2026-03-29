@@ -235,7 +235,7 @@ export default function SpeciesSheet() {
             <p className="mb-1 text-xs font-semibold" style={{ color: '#ef4444' }}>
               {lang === 'es' ? 'Error al generar la ficha' : 'Error generating sheet'}
             </p>
-            <p className="text-xs font-mono leading-relaxed" style={{ color: '#f87171' }}>{genError}</p>
+            <p className="text-xs font-mono leading-relaxed error-text" style={{ color: '#f87171' }}>{genError}</p>
           </div>
         )}
 
