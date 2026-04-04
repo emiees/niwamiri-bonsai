@@ -117,7 +117,7 @@ export default function CareForm() {
       const svc = await createAIService(config.encryptedApiKey, config.aiProvider, config.aiModel)
       const tempCare: Care = {
         id: 'temp', bonsaiId: bonsaiId!, type,
-        date: new Date(date).getTime(), treeCondition: condition,
+        date: new Date(date + 'T12:00:00').getTime(), treeCondition: condition,
         description, createdAt: Date.now(),
       }
       const result = await svc.suggestReminder(tempCare, {
@@ -144,11 +144,11 @@ export default function CareForm() {
     try {
       const careData = {
         bonsaiId, type,
-        date: new Date(date).getTime(),
+        date: new Date(date + 'T12:00:00').getTime(),
         treeCondition: condition,
         description: description.trim() || undefined,
         followUpReminder: reminderDate && reminderDesc
-          ? { date: new Date(reminderDate).getTime(), description: reminderDesc }
+          ? { date: new Date(reminderDate + 'T12:00:00').getTime(), description: reminderDesc }
           : undefined,
       }
       if (isEdit && careId) {
@@ -165,22 +165,22 @@ export default function CareForm() {
       for (const imageData of photos) {
         await storageService.savePhoto({
           bonsaiId, careId: savedCareId, imageData,
-          takenAt: new Date(date).getTime(), isMainPhoto: false,
+          takenAt: new Date(date + 'T12:00:00').getTime(), isMainPhoto: false,
         })
       }
 
       if (!isEdit) {
         await storageService.saveEvent({
-          bonsaiId, type: 'care', careType: type,
+          bonsaiId, type: 'care', careType: type, careId: savedCareId,
           title: `${t(`care.${type}`)} — ${bonsai?.name ?? ''}`,
-          date: new Date(date).getTime(), completed: true,
+          date: new Date(date + 'T12:00:00').getTime(), completed: true,
         })
       }
 
       if (reminderDate && reminderDesc) {
         await storageService.saveEvent({
           bonsaiId, type: 'followup-reminder', careType: type,
-          title: reminderDesc, date: new Date(reminderDate).getTime(), completed: false,
+          title: reminderDesc, date: new Date(reminderDate + 'T12:00:00').getTime(), completed: false,
         })
       }
 

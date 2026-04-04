@@ -201,9 +201,9 @@ export default function Backup() {
       {/* Replace confirm dialog */}
       {showConfirm && (
         <>
-          <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowConfirm(false)} />
+          <div className="fixed inset-0 z-[55] bg-black/50" onClick={() => setShowConfirm(false)} />
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl px-5 py-6"
+            className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-3xl px-5 py-6"
             style={{ background: 'var(--bg)' }}
           >
             <p className="mb-2 text-base font-semibold" style={{ color: 'var(--text1)' }}>

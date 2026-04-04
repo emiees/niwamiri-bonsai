@@ -263,7 +263,10 @@ export default function Gallery() {
           className="fixed inset-0 z-50 flex flex-col"
           style={{ background: 'rgba(0,0,0,0.95)' }}
         >
-          <div className="flex items-center justify-between px-4 py-3">
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
+          >
             <p className="text-sm text-white/70">{formatDate(selected.takenAt)}</p>
             <button onClick={() => { setSelected(null); setEditingDesc(false) }}>
               <X size={22} color="white" />

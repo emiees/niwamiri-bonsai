@@ -188,9 +188,9 @@ function EditSheet({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-[55] bg-black/50" onClick={onClose} />
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-3xl"
+        className="fixed bottom-0 left-0 right-0 z-[60] flex flex-col rounded-t-3xl"
         style={{ background: 'var(--bg)', maxHeight: '92dvh' }}
       >
         <div className="flex justify-center pt-3 pb-2">
@@ -732,9 +732,9 @@ export default function BonsaiDetail() {
       {/* Delete confirm */}
       {showDeleteConfirm && (
         <>
-          <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="fixed inset-0 z-[55] bg-black/50" onClick={() => setShowDeleteConfirm(false)} />
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl px-5 py-6"
+            className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-3xl px-5 py-6"
             style={{ background: 'var(--bg)' }}
           >
             <p className="mb-2 text-base font-semibold" style={{ color: 'var(--text1)' }}>
