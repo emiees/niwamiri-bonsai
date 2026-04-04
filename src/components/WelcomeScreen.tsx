@@ -117,7 +117,7 @@ export default function WelcomeScreen() {
             {lang === 'es' ? greeting.es : greeting.en}
           </p>
           <p className="text-xs mt-1" style={{ color: 'var(--text3)' }}>
-            NiwaMirî <span style={{ color: 'var(--text3)', opacity: 0.6 }}>v1.0</span>
+            NiwaMirî <span style={{ color: 'var(--text3)', opacity: 0.6 }}>v1.1</span>
           </p>
         </div>
 
