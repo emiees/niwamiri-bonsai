@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, Plus, Check, X, Edit2 } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
@@ -83,9 +84,9 @@ function AddReminderSheet({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-[55] bg-black/50" onClick={onClose} />
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-3xl"
+        className="fixed bottom-0 left-0 right-0 z-[60] flex flex-col rounded-t-3xl"
         style={{ background: 'var(--bg)', maxHeight: '80dvh' }}
       >
         <div className="flex justify-center pt-3 pb-2">
@@ -256,6 +257,7 @@ export default function Calendar() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
 
+  const navigate = useNavigate()
   const { events, fetchEvents, updateEvent } = useCalendarStore()
   const { bonsais, fetchBonsais } = useBonsaiStore()
 
@@ -359,6 +361,7 @@ export default function Calendar() {
 
   const EventRow = ({ ev, overdue = false }: { ev: CalendarEvent; overdue?: boolean }) => {
     const bonsai = bonsais.find((b) => b.id === ev.bonsaiId)
+    const isCareLink = ev.type === 'care' && ev.careId && ev.bonsaiId
     return (
       <div
         className="flex items-start gap-3 px-4 py-3"
@@ -371,11 +374,12 @@ export default function Calendar() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p
-              className="text-sm font-medium"
+              className={`text-sm font-medium${isCareLink ? ' underline underline-offset-2 cursor-pointer' : ''}`}
               style={{
-                color: 'var(--text1)',
-                textDecoration: ev.completed ? 'line-through' : 'none',
+                color: isCareLink ? 'var(--color-accent)' : 'var(--text1)',
+                textDecoration: ev.completed ? 'line-through' : undefined,
               }}
+              onClick={isCareLink ? () => navigate(`/bonsai/${ev.bonsaiId}/care/${ev.careId}`) : undefined}
             >
               {ev.title}
             </p>

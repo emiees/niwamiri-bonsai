@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Download, Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Download, Upload, Loader2, CheckCircle2, AlertCircle, Share2 } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { exportBackup, importBackup } from '@/utils/backup'
@@ -8,6 +8,15 @@ import { useAppStore } from '@/store/appStore'
 import { storageService } from '@/services/storage/DexieStorageService'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
+
+// Detecta si el dispositivo soporta Web Share con archivos (iOS/Android)
+function canWebShare(): boolean {
+  try {
+    return !!navigator.share && !!navigator.canShare
+  } catch {
+    return false
+  }
+}
 
 export default function Backup() {
   const { t, i18n } = useTranslation()
@@ -26,20 +35,36 @@ export default function Backup() {
     try {
       const blob = await exportBackup()
       const date = new Date().toISOString().slice(0, 10)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `niwamiri_backup_${date}.zip`
-      a.click()
-      URL.revokeObjectURL(url)
+      const filename = `niwamiri_backup_${date}.zip`
+
+      // En móvil (iOS/Android): abre el share sheet nativo.
+      // El usuario puede elegir "Guardar en Archivos", "Agregar a Drive", etc.
+      const file = new File([blob], filename, { type: 'application/zip' })
+      if (canWebShare() && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'NiwaMirî Backup' })
+      } else {
+        // Fallback desktop: descarga directa
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+
       const now = Date.now()
       updateConfig({ lastBackupAt: now })
       await storageService.updateConfig({ lastBackupAt: now })
       setExportStatus('ok')
       setTimeout(() => setExportStatus('idle'), 3000)
-    } catch {
-      setExportStatus('error')
-      setTimeout(() => setExportStatus('idle'), 3000)
+    } catch (err) {
+      // AbortError = el usuario cerró el share sheet sin guardar, no es un error
+      if ((err as Error).name === 'AbortError') {
+        setExportStatus('idle')
+      } else {
+        setExportStatus('error')
+        setTimeout(() => setExportStatus('idle'), 3000)
+      }
     }
   }
 
@@ -76,6 +101,8 @@ export default function Backup() {
     return null
   }
 
+  const isMobile = canWebShare()
+
   return (
     <AppShell showNav={false}>
       <Header title={t('backup.title')} showBack hideSettings />
@@ -91,9 +118,13 @@ export default function Backup() {
               {t('backup.export')}
             </h3>
             <p className="text-xs mb-4" style={{ color: 'var(--text3)' }}>
-              {lang === 'es'
-                ? 'Descarga un archivo .zip con todos tus árboles, cuidados, fotos y notas.'
-                : 'Downloads a .zip file with all your trees, cares, photos, and notes.'}
+              {isMobile
+                ? (lang === 'es'
+                  ? 'Genera un .zip con todos tus datos y abre el menú para guardarlo en Archivos, Google Drive u otra app.'
+                  : 'Generates a .zip with all your data and opens the share menu to save to Files, Google Drive, or another app.')
+                : (lang === 'es'
+                  ? 'Descarga un archivo .zip con todos tus árboles, cuidados, fotos y notas.'
+                  : 'Downloads a .zip file with all your trees, cares, photos, and notes.')}
             </p>
             <button
               onClick={handleExport}
@@ -106,11 +137,13 @@ export default function Backup() {
             >
               {exportStatus !== 'idle'
                 ? statusIcon(exportStatus)
-                : <Download size={16} />}
+                : isMobile ? <Share2 size={16} /> : <Download size={16} />}
               {exportStatus === 'ok'
                 ? t('backup.exportSuccess')
                 : exportStatus === 'error'
                 ? t('common.error')
+                : isMobile
+                ? (lang === 'es' ? 'Compartir / Guardar backup' : 'Share / Save backup')
                 : t('backup.export')}
             </button>
           </div>
@@ -201,9 +234,9 @@ export default function Backup() {
       {/* Replace confirm dialog */}
       {showConfirm && (
         <>
-          <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowConfirm(false)} />
+          <div className="fixed inset-0 z-[55] bg-black/50" onClick={() => setShowConfirm(false)} />
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl px-5 py-6"
+            className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-3xl px-5 py-6"
             style={{ background: 'var(--bg)' }}
           >
             <p className="mb-2 text-base font-semibold" style={{ color: 'var(--text1)' }}>

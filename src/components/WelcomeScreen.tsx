@@ -3,18 +3,28 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { TreePine, CalendarDays, HardDrive } from 'lucide-react'
 import { storageService } from '@/services/storage/DexieStorageService'
+import { db } from '@/db/schema'
 import { useSeason } from '@/hooks/useSeason'
 import { useBonsaiStore } from '@/store/bonsaiStore'
 import { useAppStore } from '@/store/appStore'
 
 const SESSION_KEY = 'niwamiri_welcome_shown'
-const BACKUP_WARN_DAYS = 7
 
 const SEASON_GREETINGS: Record<string, { emoji: string; es: string; en: string }> = {
   spring: { emoji: '🌸', es: '¡Bienvenido a la primavera!', en: 'Welcome to spring!' },
   summer: { emoji: '☀️', es: '¡Bienvenido al verano!',     en: 'Welcome to summer!'  },
   autumn: { emoji: '🍂', es: '¡Bienvenido al otoño!',      en: 'Welcome to autumn!'  },
   winter: { emoji: '❄️', es: '¡Bienvenido al invierno!',   en: 'Welcome to winter!'  },
+}
+
+// Cuenta registros nuevos (cuidados + fotos + notas de clase) desde un timestamp
+async function countNewRecordsSince(since: number): Promise<{ cares: number; photos: number; notes: number }> {
+  const [cares, photos, notes] = await Promise.all([
+    db.cares.where('date').above(since).count(),
+    db.photos.where('takenAt').above(since).count(),
+    db.classNotes.where('classDate').above(since).count(),
+  ])
+  return { cares, photos, notes }
 }
 
 export default function WelcomeScreen() {
@@ -28,22 +38,27 @@ export default function WelcomeScreen() {
   const [visible, setVisible] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const [countdown, setCountdown] = useState(10)
+  const [newRecords, setNewRecords] = useState<{ cares: number; photos: number; notes: number } | null>(null)
 
-  // Mostrar solo una vez por sesión
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY)) return
     sessionStorage.setItem(SESSION_KEY, '1')
 
     const now = Date.now()
+
+    // Cuidados vencidos en el calendario
     storageService.getEventsByDateRange(0, now).then((events) => {
       const overdue = events.filter((e) => !e.completed && e.date <= now).length
       setPendingCount(overdue)
     }).catch(() => {})
 
+    // Registros nuevos desde el último backup
+    const since = config?.lastBackupAt ?? 0
+    countNewRecordsSince(since).then(setNewRecords).catch(() => {})
+
     setVisible(true)
   }, [])
 
-  // Cuenta regresiva y auto-cierre
   useEffect(() => {
     if (!visible) return
     if (countdown <= 0) { setVisible(false); return }
@@ -54,10 +69,35 @@ export default function WelcomeScreen() {
   if (!visible) return null
 
   const greeting = SEASON_GREETINGS[season]
-  const showBackupWarning = (() => {
-    if (!config?.lastBackupAt) return true
-    return Date.now() - config.lastBackupAt > BACKUP_WARN_DAYS * 24 * 60 * 60 * 1000
-  })()
+
+  // Alerta de backup: sin backup nunca, o con registros nuevos significativos (> 3)
+  const totalNew = (newRecords?.cares ?? 0) + (newRecords?.photos ?? 0) + (newRecords?.notes ?? 0)
+  const neverBacked = !config?.lastBackupAt && bonsais.length > 0
+  const showBackupWarning = neverBacked || totalNew > 3
+
+  function backupWarningText(): { title: string; subtitle: string } {
+    if (neverBacked) {
+      return {
+        title: lang === 'es' ? 'Tu colección no tiene backup' : 'Your collection has no backup',
+        subtitle: lang === 'es'
+          ? 'Si se borran los datos del navegador perderías todo'
+          : 'If browser data is cleared you would lose everything',
+      }
+    }
+    const parts: string[] = []
+    if (newRecords!.cares > 0)
+      parts.push(lang === 'es' ? `${newRecords!.cares} cuidado${newRecords!.cares !== 1 ? 's' : ''}` : `${newRecords!.cares} care${newRecords!.cares !== 1 ? 's' : ''}`)
+    if (newRecords!.photos > 0)
+      parts.push(lang === 'es' ? `${newRecords!.photos} foto${newRecords!.photos !== 1 ? 's' : ''}` : `${newRecords!.photos} photo${newRecords!.photos !== 1 ? 's' : ''}`)
+    if (newRecords!.notes > 0)
+      parts.push(lang === 'es' ? `${newRecords!.notes} nota${newRecords!.notes !== 1 ? 's' : ''}` : `${newRecords!.notes} note${newRecords!.notes !== 1 ? 's' : ''}`)
+    return {
+      title: lang === 'es' ? 'Hacer backup' : 'Back up your data',
+      subtitle: lang === 'es'
+        ? `${parts.join(' y ')} sin respaldar`
+        : `${parts.join(' and ')} not backed up`,
+    }
+  }
 
   function dismiss() { setVisible(false) }
 
@@ -77,7 +117,7 @@ export default function WelcomeScreen() {
             {lang === 'es' ? greeting.es : greeting.en}
           </p>
           <p className="text-xs mt-1" style={{ color: 'var(--text3)' }}>
-            NiwaMirî <span style={{ color: 'var(--text3)', opacity: 0.6 }}>v1.0</span>
+            NiwaMirî <span style={{ color: 'var(--text3)', opacity: 0.6 }}>v1.1</span>
           </p>
         </div>
 
@@ -110,22 +150,23 @@ export default function WelcomeScreen() {
           </button>
         )}
 
-        {/* Recordatorio de backup */}
+        {/* Alerta de backup inteligente */}
         {showBackupWarning && (
           <button
             onClick={() => { dismiss(); navigate('/settings/backup') }}
             className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left"
-            style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)' }}
+            style={{
+              background: neverBacked ? 'rgba(239,68,68,0.12)' : 'rgba(99,102,241,0.12)',
+              border: `1px solid ${neverBacked ? 'rgba(239,68,68,0.3)' : 'rgba(99,102,241,0.3)'}`,
+            }}
           >
-            <HardDrive size={18} style={{ color: 'rgb(129,140,248)', flexShrink: 0 }} />
+            <HardDrive size={18} style={{ color: neverBacked ? '#ef4444' : 'rgb(129,140,248)', flexShrink: 0 }} />
             <div>
-              <p className="text-sm font-medium" style={{ color: 'rgb(129,140,248)' }}>
-                {lang === 'es' ? 'Hacer backup' : 'Back up your data'}
+              <p className="text-sm font-medium" style={{ color: neverBacked ? '#ef4444' : 'rgb(129,140,248)' }}>
+                {backupWarningText().title}
               </p>
               <p className="text-xs" style={{ color: 'var(--text3)' }}>
-                {config?.lastBackupAt
-                  ? (lang === 'es' ? `Hace más de ${BACKUP_WARN_DAYS} días` : `Over ${BACKUP_WARN_DAYS} days ago`)
-                  : (lang === 'es' ? 'Sin backup registrado' : 'No backup on record')}
+                {backupWarningText().subtitle}
               </p>
             </div>
           </button>
