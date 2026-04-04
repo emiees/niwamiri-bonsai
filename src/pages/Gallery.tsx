@@ -362,13 +362,12 @@ export default function Gallery() {
             className="flex items-center justify-between px-4 py-3"
             style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
           >
-            {/* F015: fecha clickeable para editar */}
+            {/* F015: fecha+hora clickeable para editar */}
             {editingDate ? (
               <div className="flex items-center gap-2">
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={dateInput}
-                  max={todayISO}
                   onChange={(e) => setDateInput(e.target.value)}
                   className="rounded-xl px-2 py-1 text-sm outline-none"
                   style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}
@@ -377,7 +376,7 @@ export default function Gallery() {
                 <button
                   onClick={async () => {
                     if (!dateInput) return
-                    const takenAt = new Date(dateInput + 'T12:00:00').getTime()
+                    const takenAt = new Date(dateInput).getTime()
                     await storageService.updatePhoto(selected.id, { takenAt })
                     setEditingDate(false)
                     await loadPhotos()
@@ -394,7 +393,14 @@ export default function Gallery() {
             ) : (
               <button
                 className="flex items-center gap-1.5"
-                onClick={() => { setDateInput(new Date(selected.takenAt).toISOString().split('T')[0]); setEditingDate(true) }}
+                onClick={() => {
+                  // Formato local YYYY-MM-DDTHH:MM para datetime-local input
+                  const d = new Date(selected.takenAt)
+                  const pad = (n: number) => String(n).padStart(2, '0')
+                  const local = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                  setDateInput(local)
+                  setEditingDate(true)
+                }}
               >
                 <div className="text-left">
                   <p className="text-sm text-white/70">{formatDate(selected.takenAt)}</p>
