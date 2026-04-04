@@ -9,6 +9,7 @@ import { useAppStore } from '@/store/appStore'
 import { useSeason } from '@/hooks/useSeason'
 import { createAIService } from '@/hooks/useAI'
 import { compressImage, base64ToDataUrl } from '@/utils/images'
+import MarkdownMessage from '@/components/MarkdownMessage'
 
 // ID especial para la conversación general (sin árbol)
 const GENERAL_CONVERSATION_ID = 'general'
@@ -238,7 +239,11 @@ export default function GeneralAssistant() {
                         className="mb-2 max-w-full rounded-xl"
                       />
                     )}
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    {msg.role === 'assistant' ? (
+                      <MarkdownMessage content={msg.content} color="var(--text1)" />
+                    ) : (
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    )}
                   </div>
                 )}
               </div>
