@@ -77,60 +77,6 @@ export async function exportBackup(): Promise<Blob> {
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } })
 }
 
-const OPFS_FILENAME = 'niwamiri-auto-backup.zip'
-
-/**
- * Genera un backup completo y lo guarda en el Origin Private File System (OPFS).
- * No requiere permiso del usuario. Devuelve true si fue exitoso.
- */
-export async function saveAutoBackupToOPFS(): Promise<boolean> {
-  try {
-    const blob = await exportBackup()
-    const root = await navigator.storage.getDirectory()
-    const fh = await root.getFileHandle(OPFS_FILENAME, { create: true })
-    const writable = await fh.createWritable()
-    await writable.write(blob)
-    await writable.close()
-    return true
-  } catch {
-    return false
-  }
-}
-
-/**
- * Descarga el último backup automático guardado en OPFS.
- * Devuelve false si no hay ninguno guardado.
- */
-export async function downloadAutoBackup(): Promise<boolean> {
-  try {
-    const root = await navigator.storage.getDirectory()
-    const fh = await root.getFileHandle(OPFS_FILENAME)
-    const file = await fh.getFile()
-    const url = URL.createObjectURL(file)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `niwamiri_auto_backup_${new Date().toISOString().slice(0, 10)}.zip`
-    a.click()
-    URL.revokeObjectURL(url)
-    return true
-  } catch {
-    return false
-  }
-}
-
-/**
- * Devuelve true si existe un backup automático en OPFS.
- */
-export async function hasAutoBackup(): Promise<boolean> {
-  try {
-    const root = await navigator.storage.getDirectory()
-    await root.getFileHandle(OPFS_FILENAME)
-    return true
-  } catch {
-    return false
-  }
-}
-
 export async function importBackup(file: File, mode: 'replace' | 'merge'): Promise<void> {
   const zip = await JSZip.loadAsync(file)
 

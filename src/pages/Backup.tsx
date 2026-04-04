@@ -1,76 +1,70 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Download, Upload, Loader2, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
+import { Download, Upload, Loader2, CheckCircle2, AlertCircle, Share2 } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
-import { exportBackup, importBackup, downloadAutoBackup, hasAutoBackup, saveAutoBackupToOPFS } from '@/utils/backup'
+import { exportBackup, importBackup } from '@/utils/backup'
 import { useAppStore } from '@/store/appStore'
 import { storageService } from '@/services/storage/DexieStorageService'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
 
+// Detecta si el dispositivo soporta Web Share con archivos (iOS/Android)
+function canWebShare(): boolean {
+  try {
+    return !!navigator.share && !!navigator.canShare
+  } catch {
+    return false
+  }
+}
+
 export default function Backup() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
 
-  const config = useAppStore((s) => s.config)
   const updateConfig = useAppStore((s) => s.updateConfig)
   const [exportStatus, setExportStatus] = useState<Status>('idle')
   const [importStatus, setImportStatus] = useState<Status>('idle')
-  const [autoStatus, setAutoStatus] = useState<Status>('idle')
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('merge')
   const [showConfirm, setShowConfirm] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
-  const [hasAuto, setHasAuto] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    hasAutoBackup().then(setHasAuto).catch(() => {})
-  }, [])
-
-  async function handleDownloadAuto() {
-    const ok = await downloadAutoBackup()
-    if (!ok) setAutoStatus('error')
-  }
-
-  async function handleForceAutoBackup() {
-    setAutoStatus('loading')
-    try {
-      const ok = await saveAutoBackupToOPFS()
-      if (ok) {
-        const ts = Date.now()
-        updateConfig({ lastAutoBackupAt: ts })
-        await storageService.updateConfig({ lastAutoBackupAt: ts })
-        setHasAuto(true)
-        setAutoStatus('ok')
-      } else {
-        setAutoStatus('error')
-      }
-    } catch {
-      setAutoStatus('error')
-    }
-    setTimeout(() => setAutoStatus('idle'), 3000)
-  }
 
   async function handleExport() {
     setExportStatus('loading')
     try {
       const blob = await exportBackup()
       const date = new Date().toISOString().slice(0, 10)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `niwamiri_backup_${date}.zip`
-      a.click()
-      URL.revokeObjectURL(url)
+      const filename = `niwamiri_backup_${date}.zip`
+
+      // En móvil (iOS/Android): abre el share sheet nativo.
+      // El usuario puede elegir "Guardar en Archivos", "Agregar a Drive", etc.
+      const file = new File([blob], filename, { type: 'application/zip' })
+      if (canWebShare() && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'NiwaMirî Backup' })
+      } else {
+        // Fallback desktop: descarga directa
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+
       const now = Date.now()
       updateConfig({ lastBackupAt: now })
       await storageService.updateConfig({ lastBackupAt: now })
       setExportStatus('ok')
       setTimeout(() => setExportStatus('idle'), 3000)
-    } catch {
-      setExportStatus('error')
-      setTimeout(() => setExportStatus('idle'), 3000)
+    } catch (err) {
+      // AbortError = el usuario cerró el share sheet sin guardar, no es un error
+      if ((err as Error).name === 'AbortError') {
+        setExportStatus('idle')
+      } else {
+        setExportStatus('error')
+        setTimeout(() => setExportStatus('idle'), 3000)
+      }
     }
   }
 
@@ -107,69 +101,13 @@ export default function Backup() {
     return null
   }
 
+  const isMobile = canWebShare()
+
   return (
     <AppShell showNav={false}>
       <Header title={t('backup.title')} showBack hideSettings />
 
       <div className="flex flex-col gap-4 px-4 py-4">
-        {/* Auto-backup */}
-        <div
-          className="overflow-hidden rounded-2xl"
-          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-        >
-          <div className="px-4 py-4 flex flex-col gap-3">
-            <div>
-              <h3 className="font-semibold text-sm mb-1" style={{ color: 'var(--text1)' }}>
-                {lang === 'es' ? 'Backup automático' : 'Automatic backup'}
-              </h3>
-              <p className="text-xs" style={{ color: 'var(--text3)' }}>
-                {lang === 'es'
-                  ? 'Se genera automáticamente al abrir la app. Se guarda en el almacenamiento interno de la app (solo el último, sobrescribe el anterior). Para guardarlo en tu dispositivo, usá el botón "Descargar".'
-                  : 'Generated automatically on app open. Saved in the app\'s internal storage (only the latest — previous one is overwritten). Use "Download" to save it to your device.'}
-              </p>
-              {config?.lastAutoBackupAt ? (
-                <p className="text-xs mt-2 font-medium" style={{ color: 'var(--color-accent)' }}>
-                  {lang === 'es' ? '✓ Último: ' : '✓ Last: '}
-                  {new Date(config.lastAutoBackupAt).toLocaleString(lang === 'es' ? 'es-AR' : 'en-US', {
-                    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                  })}
-                </p>
-              ) : (
-                <p className="text-xs mt-2" style={{ color: 'var(--text3)' }}>
-                  {lang === 'es' ? 'Aún no hay backup automático.' : 'No automatic backup yet.'}
-                </p>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleForceAutoBackup}
-                disabled={autoStatus === 'loading'}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium disabled:opacity-50"
-                style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}
-              >
-                {autoStatus === 'loading'
-                  ? <Loader2 size={14} className="animate-spin" />
-                  : autoStatus === 'ok'
-                  ? <CheckCircle2 size={14} />
-                  : autoStatus === 'error'
-                  ? <AlertCircle size={14} />
-                  : <RefreshCw size={14} />}
-                {lang === 'es' ? 'Generar ahora' : 'Generate now'}
-              </button>
-              {hasAuto && (
-                <button
-                  onClick={handleDownloadAuto}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium"
-                  style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}
-                >
-                  <Download size={14} />
-                  {lang === 'es' ? 'Descargar' : 'Download'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* Export */}
         <div
           className="overflow-hidden rounded-2xl"
@@ -180,9 +118,13 @@ export default function Backup() {
               {t('backup.export')}
             </h3>
             <p className="text-xs mb-4" style={{ color: 'var(--text3)' }}>
-              {lang === 'es'
-                ? 'Descarga un archivo .zip con todos tus árboles, cuidados, fotos y notas.'
-                : 'Downloads a .zip file with all your trees, cares, photos, and notes.'}
+              {isMobile
+                ? (lang === 'es'
+                  ? 'Genera un .zip con todos tus datos y abre el menú para guardarlo en Archivos, Google Drive u otra app.'
+                  : 'Generates a .zip with all your data and opens the share menu to save to Files, Google Drive, or another app.')
+                : (lang === 'es'
+                  ? 'Descarga un archivo .zip con todos tus árboles, cuidados, fotos y notas.'
+                  : 'Downloads a .zip file with all your trees, cares, photos, and notes.')}
             </p>
             <button
               onClick={handleExport}
@@ -195,11 +137,13 @@ export default function Backup() {
             >
               {exportStatus !== 'idle'
                 ? statusIcon(exportStatus)
-                : <Download size={16} />}
+                : isMobile ? <Share2 size={16} /> : <Download size={16} />}
               {exportStatus === 'ok'
                 ? t('backup.exportSuccess')
                 : exportStatus === 'error'
                 ? t('common.error')
+                : isMobile
+                ? (lang === 'es' ? 'Compartir / Guardar backup' : 'Share / Save backup')
                 : t('backup.export')}
             </button>
           </div>
