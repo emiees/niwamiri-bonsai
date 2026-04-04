@@ -124,15 +124,19 @@ export default function Backup() {
               </h3>
               <p className="text-xs" style={{ color: 'var(--text3)' }}>
                 {lang === 'es'
-                  ? 'Se genera automáticamente al abrir la app y se guarda en tu dispositivo.'
-                  : 'Generated automatically on app open and saved on your device.'}
+                  ? 'Se genera automáticamente al abrir la app. Se guarda en el almacenamiento interno de la app (solo el último, sobrescribe el anterior). Para guardarlo en tu dispositivo, usá el botón "Descargar".'
+                  : 'Generated automatically on app open. Saved in the app\'s internal storage (only the latest — previous one is overwritten). Use "Download" to save it to your device.'}
               </p>
-              {config?.lastAutoBackupAt && (
-                <p className="text-xs mt-1" style={{ color: 'var(--color-accent)' }}>
-                  {lang === 'es' ? 'Último: ' : 'Last: '}
+              {config?.lastAutoBackupAt ? (
+                <p className="text-xs mt-2 font-medium" style={{ color: 'var(--color-accent)' }}>
+                  {lang === 'es' ? '✓ Último: ' : '✓ Last: '}
                   {new Date(config.lastAutoBackupAt).toLocaleString(lang === 'es' ? 'es-AR' : 'en-US', {
                     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
                   })}
+                </p>
+              ) : (
+                <p className="text-xs mt-2" style={{ color: 'var(--text3)' }}>
+                  {lang === 'es' ? 'Aún no hay backup automático.' : 'No automatic backup yet.'}
                 </p>
               )}
             </div>

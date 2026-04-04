@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { TreePine, CalendarDays, HardDrive } from 'lucide-react'
+import { TreePine, CalendarDays, HardDrive, CheckCircle2, Loader2 } from 'lucide-react'
 import { storageService } from '@/services/storage/DexieStorageService'
 import { useSeason } from '@/hooks/useSeason'
 import { useBonsaiStore } from '@/store/bonsaiStore'
@@ -31,6 +31,7 @@ export default function WelcomeScreen() {
   const [visible, setVisible] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const [countdown, setCountdown] = useState(10)
+  const [autoBackupStatus, setAutoBackupStatus] = useState<'running' | 'ok' | 'error' | 'idle'>('idle')
 
   // Mostrar solo una vez por sesión; disparar auto-backup en segundo plano
   useEffect(() => {
@@ -43,14 +44,18 @@ export default function WelcomeScreen() {
       setPendingCount(overdue)
     }).catch(() => {})
 
-    // Auto-backup silencioso en OPFS
+    // Auto-backup en OPFS — muestra resultado en la pantalla
+    setAutoBackupStatus('running')
     saveAutoBackupToOPFS().then((ok) => {
       if (ok) {
         const ts = Date.now()
         updateConfig({ lastAutoBackupAt: ts })
         storageService.updateConfig({ lastAutoBackupAt: ts }).catch(() => {})
+        setAutoBackupStatus('ok')
+      } else {
+        setAutoBackupStatus('error')
       }
-    }).catch(() => {})
+    }).catch(() => setAutoBackupStatus('error'))
 
     setVisible(true)
   }, [])
@@ -66,7 +71,8 @@ export default function WelcomeScreen() {
   if (!visible) return null
 
   const greeting = SEASON_GREETINGS[season]
-  const showBackupWarning = (() => {
+  // Mostrar aviso de backup manual solo si el auto-backup falló y hace mucho que no se exporta
+  const showBackupWarning = autoBackupStatus === 'error' && (() => {
     if (!config?.lastBackupAt) return true
     return Date.now() - config.lastBackupAt > BACKUP_WARN_DAYS * 24 * 60 * 60 * 1000
   })()
@@ -122,7 +128,38 @@ export default function WelcomeScreen() {
           </button>
         )}
 
-        {/* Recordatorio de backup */}
+        {/* Estado del auto-backup */}
+        {autoBackupStatus === 'running' && (
+          <div
+            className="flex items-center gap-3 rounded-2xl px-4 py-3"
+            style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}
+          >
+            <Loader2 size={16} className="animate-spin shrink-0" style={{ color: 'rgb(129,140,248)' }} />
+            <p className="text-sm" style={{ color: 'var(--text3)' }}>
+              {lang === 'es' ? 'Guardando backup automático…' : 'Saving automatic backup…'}
+            </p>
+          </div>
+        )}
+        {autoBackupStatus === 'ok' && (
+          <div
+            className="flex items-center gap-3 rounded-2xl px-4 py-3"
+            style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}
+          >
+            <CheckCircle2 size={16} className="shrink-0" style={{ color: '#22c55e' }} />
+            <div>
+              <p className="text-sm font-medium" style={{ color: '#22c55e' }}>
+                {lang === 'es' ? 'Backup automático guardado' : 'Automatic backup saved'}
+              </p>
+              <p className="text-xs" style={{ color: 'var(--text3)' }}>
+                {lang === 'es'
+                  ? 'Descargable desde Ajustes → Backup'
+                  : 'Downloadable from Settings → Backup'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Recordatorio de backup manual — solo si el auto-backup falló */}
         {showBackupWarning && (
           <button
             onClick={() => { dismiss(); navigate('/settings/backup') }}
@@ -132,12 +169,12 @@ export default function WelcomeScreen() {
             <HardDrive size={18} style={{ color: 'rgb(129,140,248)', flexShrink: 0 }} />
             <div>
               <p className="text-sm font-medium" style={{ color: 'rgb(129,140,248)' }}>
-                {lang === 'es' ? 'Hacer backup' : 'Back up your data'}
+                {lang === 'es' ? 'Hacer backup manual' : 'Manual backup'}
               </p>
               <p className="text-xs" style={{ color: 'var(--text3)' }}>
-                {config?.lastBackupAt
-                  ? (lang === 'es' ? `Hace más de ${BACKUP_WARN_DAYS} días` : `Over ${BACKUP_WARN_DAYS} days ago`)
-                  : (lang === 'es' ? 'Sin backup registrado' : 'No backup on record')}
+                {lang === 'es'
+                  ? 'El backup automático no pudo guardarse'
+                  : 'Automatic backup could not be saved'}
               </p>
             </div>
           </button>
