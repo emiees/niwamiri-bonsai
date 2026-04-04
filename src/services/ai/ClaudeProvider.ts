@@ -78,9 +78,16 @@ export class ClaudeProvider implements AIService {
   }
 
   async chat(messages: AIMessage[], context: BonsaiContext): Promise<string> {
+    const recentCaresSummary = context.recentCares.slice(0, 7).map((c) => {
+      const date = new Date(c.date).toLocaleDateString('es-AR')
+      const desc = c.description ? ` — "${c.description}"` : ''
+      return `• ${date}: ${c.type} (${c.treeCondition})${desc}`
+    }).join('\n') || 'ninguno registrado'
     const system = `You are NiwaMirî, an expert bonsai assistant.
-Tree: ${context.bonsai.name} (${context.bonsai.species}), status: ${context.bonsai.status}, season: ${context.season}.
-Respond in Spanish.`
+Árbol: ${context.bonsai.name} (${context.bonsai.species}), estado: ${context.bonsai.status}, estación: ${context.season}.
+Últimos cuidados registrados:
+${recentCaresSummary}
+Responde siempre en español. Cuando sea relevante, considera el historial de cuidados al dar sugerencias.`
 
     const claudeMessages = messages.map((m) => ({
       role: m.role,

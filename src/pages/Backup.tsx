@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Download, Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Download, Upload, Loader2, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
-import { exportBackup, importBackup } from '@/utils/backup'
+import { exportBackup, importBackup, downloadAutoBackup, hasAutoBackup, saveAutoBackupToOPFS } from '@/utils/backup'
 import { useAppStore } from '@/store/appStore'
 import { storageService } from '@/services/storage/DexieStorageService'
 
@@ -13,13 +13,44 @@ export default function Backup() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
 
+  const config = useAppStore((s) => s.config)
   const updateConfig = useAppStore((s) => s.updateConfig)
   const [exportStatus, setExportStatus] = useState<Status>('idle')
   const [importStatus, setImportStatus] = useState<Status>('idle')
+  const [autoStatus, setAutoStatus] = useState<Status>('idle')
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('merge')
   const [showConfirm, setShowConfirm] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [hasAuto, setHasAuto] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    hasAutoBackup().then(setHasAuto).catch(() => {})
+  }, [])
+
+  async function handleDownloadAuto() {
+    const ok = await downloadAutoBackup()
+    if (!ok) setAutoStatus('error')
+  }
+
+  async function handleForceAutoBackup() {
+    setAutoStatus('loading')
+    try {
+      const ok = await saveAutoBackupToOPFS()
+      if (ok) {
+        const ts = Date.now()
+        updateConfig({ lastAutoBackupAt: ts })
+        await storageService.updateConfig({ lastAutoBackupAt: ts })
+        setHasAuto(true)
+        setAutoStatus('ok')
+      } else {
+        setAutoStatus('error')
+      }
+    } catch {
+      setAutoStatus('error')
+    }
+    setTimeout(() => setAutoStatus('idle'), 3000)
+  }
 
   async function handleExport() {
     setExportStatus('loading')
@@ -81,6 +112,60 @@ export default function Backup() {
       <Header title={t('backup.title')} showBack hideSettings />
 
       <div className="flex flex-col gap-4 px-4 py-4">
+        {/* Auto-backup */}
+        <div
+          className="overflow-hidden rounded-2xl"
+          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+        >
+          <div className="px-4 py-4 flex flex-col gap-3">
+            <div>
+              <h3 className="font-semibold text-sm mb-1" style={{ color: 'var(--text1)' }}>
+                {lang === 'es' ? 'Backup automático' : 'Automatic backup'}
+              </h3>
+              <p className="text-xs" style={{ color: 'var(--text3)' }}>
+                {lang === 'es'
+                  ? 'Se genera automáticamente al abrir la app y se guarda en tu dispositivo.'
+                  : 'Generated automatically on app open and saved on your device.'}
+              </p>
+              {config?.lastAutoBackupAt && (
+                <p className="text-xs mt-1" style={{ color: 'var(--color-accent)' }}>
+                  {lang === 'es' ? 'Último: ' : 'Last: '}
+                  {new Date(config.lastAutoBackupAt).toLocaleString(lang === 'es' ? 'es-AR' : 'en-US', {
+                    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                  })}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleForceAutoBackup}
+                disabled={autoStatus === 'loading'}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium disabled:opacity-50"
+                style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}
+              >
+                {autoStatus === 'loading'
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : autoStatus === 'ok'
+                  ? <CheckCircle2 size={14} />
+                  : autoStatus === 'error'
+                  ? <AlertCircle size={14} />
+                  : <RefreshCw size={14} />}
+                {lang === 'es' ? 'Generar ahora' : 'Generate now'}
+              </button>
+              {hasAuto && (
+                <button
+                  onClick={handleDownloadAuto}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium"
+                  style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}
+                >
+                  <Download size={14} />
+                  {lang === 'es' ? 'Descargar' : 'Download'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Export */}
         <div
           className="overflow-hidden rounded-2xl"

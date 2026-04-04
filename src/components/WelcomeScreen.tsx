@@ -6,6 +6,7 @@ import { storageService } from '@/services/storage/DexieStorageService'
 import { useSeason } from '@/hooks/useSeason'
 import { useBonsaiStore } from '@/store/bonsaiStore'
 import { useAppStore } from '@/store/appStore'
+import { saveAutoBackupToOPFS } from '@/utils/backup'
 
 const SESSION_KEY = 'niwamiri_welcome_shown'
 const BACKUP_WARN_DAYS = 7
@@ -25,11 +26,13 @@ export default function WelcomeScreen() {
   const { bonsais } = useBonsaiStore()
   const config = useAppStore((s) => s.config)
 
+  const updateConfig = useAppStore((s) => s.updateConfig)
+
   const [visible, setVisible] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const [countdown, setCountdown] = useState(10)
 
-  // Mostrar solo una vez por sesión
+  // Mostrar solo una vez por sesión; disparar auto-backup en segundo plano
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY)) return
     sessionStorage.setItem(SESSION_KEY, '1')
@@ -38,6 +41,15 @@ export default function WelcomeScreen() {
     storageService.getEventsByDateRange(0, now).then((events) => {
       const overdue = events.filter((e) => !e.completed && e.date <= now).length
       setPendingCount(overdue)
+    }).catch(() => {})
+
+    // Auto-backup silencioso en OPFS
+    saveAutoBackupToOPFS().then((ok) => {
+      if (ok) {
+        const ts = Date.now()
+        updateConfig({ lastAutoBackupAt: ts })
+        storageService.updateConfig({ lastAutoBackupAt: ts }).catch(() => {})
+      }
     }).catch(() => {})
 
     setVisible(true)

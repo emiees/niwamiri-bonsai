@@ -67,13 +67,19 @@ Respond ONLY in JSON with these keys (in Spanish): origen, clima, luz, riego, fe
   }
 
   async chat(messages: AIMessage[], context: BonsaiContext): Promise<string> {
+    const recentCaresSummary = context.recentCares.slice(0, 7).map((c) => {
+      const date = new Date(c.date).toLocaleDateString('es-AR')
+      const desc = c.description ? ` — "${c.description}"` : ''
+      return `• ${date}: ${c.type} (${c.treeCondition})${desc}`
+    }).join('\n') || 'ninguno registrado'
     const systemPrompt = `You are NiwaMirî, an expert bonsai assistant.
-Current context:
-- Tree: ${context.bonsai.name} (${context.bonsai.species})
-- Status: ${context.bonsai.status}
-- Season: ${context.season}
-- Recent cares: ${context.recentCares.slice(0, 3).map((c) => c.type).join(', ') || 'none'}
-Respond in Spanish. Be helpful and concise.`
+Contexto actual:
+- Árbol: ${context.bonsai.name} (${context.bonsai.species})
+- Estado: ${context.bonsai.status}
+- Estación: ${context.season}
+- Últimos cuidados registrados:
+${recentCaresSummary}
+Responde siempre en español. Sé útil y conciso. Cuando sea relevante, considera el historial de cuidados al dar sugerencias.`
 
     const contents = [
       { role: 'user', parts: [{ text: systemPrompt }] },

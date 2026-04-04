@@ -150,7 +150,8 @@ export interface AppConfig {
   pushNotifications: boolean
   onboardingCompleted: boolean
   fontSize: 'normal' | 'large'
-  lastBackupAt?: number // timestamp del último backup exportado
+  lastBackupAt?: number    // timestamp del último backup manual exportado
+  lastAutoBackupAt?: number // timestamp del último backup automático (OPFS)
 }
 
 // ── DATABASE CLASS ─────────────────────────────────────────────

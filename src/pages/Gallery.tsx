@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Camera, X, Star, Trash2, LayoutGrid, Clock, Check } from 'lucide-react'
+import { Camera, X, Star, Trash2, LayoutGrid, Clock, Check, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { useBonsaiStore } from '@/store/bonsaiStore'
@@ -10,6 +10,34 @@ import { useAppStore } from '@/store/appStore'
 import { compressImage, base64ToDataUrl } from '@/utils/images'
 import { formatDate } from '@/utils/dates'
 import type { Photo } from '@/db/schema'
+
+// ── EXIF date extraction ────────────────────────��────────────────
+// Busca el patrón "YYYY:MM:DD HH:MM:SS" en los primeros 64 KB del archivo JPEG.
+function extractExifDate(buffer: ArrayBuffer): string | null {
+  const bytes = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 65536))
+  for (let i = 0; i < bytes.length - 19; i++) {
+    if (
+      bytes[i + 4] === 0x3a && bytes[i + 7] === 0x3a &&
+      bytes[i + 10] === 0x20 && bytes[i + 13] === 0x3a && bytes[i + 16] === 0x3a
+    ) {
+      const isDigit = (b: number) => b >= 0x30 && b <= 0x39
+      if (
+        isDigit(bytes[i]) && isDigit(bytes[i + 1]) && isDigit(bytes[i + 2]) && isDigit(bytes[i + 3]) &&
+        isDigit(bytes[i + 5]) && isDigit(bytes[i + 6]) &&
+        isDigit(bytes[i + 8]) && isDigit(bytes[i + 9])
+      ) {
+        const year = String.fromCharCode(bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3])
+        const month = String.fromCharCode(bytes[i + 5], bytes[i + 6])
+        const day = String.fromCharCode(bytes[i + 8], bytes[i + 9])
+        const y = parseInt(year), m = parseInt(month), d = parseInt(day)
+        if (y >= 1990 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+          return `${year}-${month}-${day}`
+        }
+      }
+    }
+  }
+  return null
+}
 
 function groupByMonth(photos: Photo[]): { label: string; photos: Photo[] }[] {
   const groups: Record<string, Photo[]> = {}
@@ -29,6 +57,8 @@ function groupByMonth(photos: Photo[]): { label: string; photos: Photo[] }[] {
     })
 }
 
+type PendingPhoto = { b64: string; date: string }
+
 export default function Gallery() {
   const { id: bonsaiId } = useParams<{ id: string }>()
   const { t, i18n } = useTranslation()
@@ -40,16 +70,26 @@ export default function Gallery() {
 
   const [photos, setPhotos] = useState<Photo[]>([])
   const [view, setView] = useState<'grid' | 'timeline'>('grid')
-  const [selected, setSelected] = useState<Photo | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [pendingPhoto, setPendingPhoto] = useState<{ b64: string; date: string } | null>(null)
+
+  // Cola de fotos pendientes de confirmar
+  const [queue, setQueue] = useState<PendingPhoto[]>([])
+
+  // Lightbox: edición de descripción y fecha
   const [editingDesc, setEditingDesc] = useState(false)
   const [descInput, setDescInput] = useState('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [editingDate, setEditingDate] = useState(false)
+  const [dateInput, setDateInput] = useState('')
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const todayISO = new Date().toISOString().split('T')[0]
+
+  // Foto actualmente seleccionada en el lightbox
+  const selected = photos.find((p) => p.id === selectedId) ?? null
+  const selectedIndex = photos.findIndex((p) => p.id === selectedId)
 
   async function loadPhotos() {
     if (!bonsaiId) return
@@ -59,47 +99,55 @@ export default function Gallery() {
     setLoading(false)
   }
 
-  useEffect(() => {
-    loadPhotos()
-  }, [bonsaiId])
+  useEffect(() => { loadPhotos() }, [bonsaiId])
 
+  // F013 + F014: múltiples archivos, extrae fecha EXIF de cada uno
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !bonsaiId) return
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length || !bonsaiId) return
     const quality = config?.photoQuality === 'low' ? 0.6 : config?.photoQuality === 'medium' ? 0.75 : 0.85
-    const b64 = await compressImage(file, 1200, quality)
-    setPendingPhoto({ b64, date: todayISO })
+    const pending: PendingPhoto[] = []
+    for (const file of files) {
+      const b64 = await compressImage(file, 1200, quality)
+      // Intentar extraer fecha EXIF; fallback a fecha actual
+      let date = todayISO
+      try {
+        const buffer = await file.arrayBuffer()
+        const exifDate = extractExifDate(buffer)
+        if (exifDate) date = exifDate
+      } catch { /* sin EXIF, usar hoy */ }
+      pending.push({ b64, date })
+    }
+    setQueue(pending)
     e.target.value = ''
   }
 
-  async function confirmPendingPhoto() {
-    if (!pendingPhoto || !bonsaiId) return
+  async function confirmCurrentPhoto() {
+    if (!queue.length || !bonsaiId) return
     setSaving(true)
-    const takenAt = new Date(pendingPhoto.date + 'T12:00:00').getTime()
-    const isFirst = photos.length === 0
+    const current = queue[0]
+    const takenAt = new Date(current.date + 'T12:00:00').getTime()
     const photoId = await storageService.savePhoto({
-      bonsaiId, imageData: pendingPhoto.b64, takenAt,
-      isMainPhoto: isFirst,
+      bonsaiId, imageData: current.b64, takenAt,
+      isMainPhoto: photos.length === 0,
     })
-    if (isFirst) {
+    if (photos.length === 0) {
       await updateBonsai(bonsaiId, { mainPhotoId: photoId })
     }
-    setPendingPhoto(null)
+    const remaining = queue.slice(1)
+    setQueue(remaining)
     setSaving(false)
     await loadPhotos()
   }
 
+  function skipCurrentPhoto() {
+    setQueue((q) => q.slice(1))
+  }
+
   async function handleSetMain(photo: Photo) {
     if (!bonsaiId) return
-    // Mark all as non-main, set selected as main
-    for (const p of photos) {
-      if (p.isMainPhoto && p.id !== photo.id) {
-        // would need updatePhoto — but there's no updatePhoto in StorageService
-        // Workaround: we only track mainPhotoId in Bonsai
-      }
-    }
     await updateBonsai(bonsaiId, { mainPhotoId: photo.id })
-    setSelected(null)
+    setSelectedId(null)
   }
 
   async function handleDelete(photo: Photo) {
@@ -110,14 +158,30 @@ export default function Gallery() {
       const remaining = photos.filter((p) => p.id !== photo.id)
       await updateBonsai(bonsaiId, { mainPhotoId: remaining[0]?.id })
     }
-    setSelected(null)
+    setSelectedId(null)
     await loadPhotos()
     setDeleting(false)
   }
 
+  // Lightbox: navegar entre fotos
+  function goToPrev() {
+    if (selectedIndex > 0) {
+      setSelectedId(photos[selectedIndex - 1].id)
+      setEditingDesc(false)
+      setEditingDate(false)
+    }
+  }
+  function goToNext() {
+    if (selectedIndex < photos.length - 1) {
+      setSelectedId(photos[selectedIndex + 1].id)
+      setEditingDesc(false)
+      setEditingDate(false)
+    }
+  }
+
   const PhotoThumb = ({ photo }: { photo: Photo }) => (
     <button
-      onClick={() => setSelected(photo)}
+      onClick={() => setSelectedId(photo.id)}
       className="relative aspect-square overflow-hidden rounded-xl"
       style={{ background: 'var(--bg3)' }}
     >
@@ -131,6 +195,7 @@ export default function Gallery() {
   )
 
   const groups = groupByMonth(photos)
+  const pendingPhoto = queue[0] ?? null
 
   return (
     <AppShell showNav={false}>
@@ -192,34 +257,33 @@ export default function Gallery() {
       >
         <Camera size={22} style={{ color: 'var(--green1)' }} />
       </button>
+      {/* F013: multiple=true para selección masiva */}
       <input
-        ref={fileInputRef} type="file" accept="image/*"
+        ref={fileInputRef} type="file" accept="image/*" multiple
         className="hidden" onChange={onFileChange}
       />
 
-      {/* Modal confirmar foto + fecha */}
+      {/* Modal confirmar foto + fecha (F013: procesa de a una de la cola) */}
       {pendingPhoto && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-end" style={{ background: 'rgba(0,0,0,0.7)' }}>
           <div className="w-full max-w-md rounded-t-3xl p-5 flex flex-col gap-4" style={{ background: 'var(--bg2)' }}>
             <div className="flex items-center justify-between">
               <p className="font-semibold" style={{ color: 'var(--text1)' }}>
-                {lang === 'es' ? 'Nueva foto' : 'New photo'}
+                {queue.length > 1
+                  ? (lang === 'es' ? `Nueva foto (${queue.length} restantes)` : `New photo (${queue.length} remaining)`)
+                  : (lang === 'es' ? 'Nueva foto' : 'New photo')}
               </p>
-              <button onClick={() => setPendingPhoto(null)}>
+              <button onClick={() => setQueue([])}>
                 <X size={20} style={{ color: 'var(--text3)' }} />
               </button>
             </div>
 
             {/* Preview */}
             <div className="overflow-hidden rounded-2xl" style={{ maxHeight: '40vh' }}>
-              <img
-                src={base64ToDataUrl(pendingPhoto.b64)}
-                alt=""
-                className="w-full object-cover"
-              />
+              <img src={base64ToDataUrl(pendingPhoto.b64)} alt="" className="w-full object-cover" />
             </div>
 
-            {/* Date picker */}
+            {/* Date picker (F014: prefilled con fecha EXIF si existe) */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium" style={{ color: 'var(--text3)' }}>
                 {lang === 'es' ? 'Fecha de la foto' : 'Photo date'}
@@ -228,7 +292,7 @@ export default function Gallery() {
                 type="date"
                 value={pendingPhoto.date}
                 max={todayISO}
-                onChange={(e) => setPendingPhoto({ ...pendingPhoto, date: e.target.value })}
+                onChange={(e) => setQueue((q) => [{ ...q[0], date: e.target.value }, ...q.slice(1)])}
                 className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
                 style={{ background: 'var(--bg3)', color: 'var(--text1)', border: '1px solid var(--border)' }}
               />
@@ -236,15 +300,25 @@ export default function Gallery() {
 
             {/* Acciones */}
             <div className="flex gap-3">
+              {queue.length > 1 ? (
+                <button
+                  onClick={skipCurrentPhoto}
+                  className="flex-1 rounded-2xl py-3 text-sm font-medium"
+                  style={{ background: 'var(--bg3)', color: 'var(--text2)' }}
+                >
+                  {lang === 'es' ? 'Omitir' : 'Skip'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => setQueue([])}
+                  className="flex-1 rounded-2xl py-3 text-sm font-medium"
+                  style={{ background: 'var(--bg3)', color: 'var(--text2)' }}
+                >
+                  {lang === 'es' ? 'Cancelar' : 'Cancel'}
+                </button>
+              )}
               <button
-                onClick={() => setPendingPhoto(null)}
-                className="flex-1 rounded-2xl py-3 text-sm font-medium"
-                style={{ background: 'var(--bg3)', color: 'var(--text2)' }}
-              >
-                {lang === 'es' ? 'Cancelar' : 'Cancel'}
-              </button>
-              <button
-                onClick={confirmPendingPhoto}
+                onClick={confirmCurrentPhoto}
                 disabled={saving || !pendingPhoto.date}
                 className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium disabled:opacity-50"
                 style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
@@ -263,22 +337,87 @@ export default function Gallery() {
           className="fixed inset-0 z-50 flex flex-col"
           style={{ background: 'rgba(0,0,0,0.95)' }}
         >
+          {/* Header con safe area (B016) */}
           <div
             className="flex items-center justify-between px-4 py-3"
             style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
           >
-            <p className="text-sm text-white/70">{formatDate(selected.takenAt)}</p>
-            <button onClick={() => { setSelected(null); setEditingDesc(false) }}>
+            {/* F015: fecha clickeable para editar */}
+            {editingDate ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={dateInput}
+                  max={todayISO}
+                  onChange={(e) => setDateInput(e.target.value)}
+                  className="rounded-xl px-2 py-1 text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}
+                  autoFocus
+                />
+                <button
+                  onClick={async () => {
+                    if (!dateInput) return
+                    const takenAt = new Date(dateInput + 'T12:00:00').getTime()
+                    await storageService.updatePhoto(selected.id, { takenAt })
+                    setEditingDate(false)
+                    await loadPhotos()
+                  }}
+                  className="rounded-xl px-2 py-1.5"
+                  style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
+                >
+                  <Check size={14} />
+                </button>
+                <button onClick={() => setEditingDate(false)}>
+                  <X size={16} color="rgba(255,255,255,0.5)" />
+                </button>
+              </div>
+            ) : (
+              <button
+                className="flex items-center gap-1.5"
+                onClick={() => { setDateInput(new Date(selected.takenAt).toISOString().split('T')[0]); setEditingDate(true) }}
+              >
+                <p className="text-sm text-white/70">{formatDate(selected.takenAt)}</p>
+                <Pencil size={12} color="rgba(255,255,255,0.4)" />
+              </button>
+            )}
+            <button onClick={() => { setSelectedId(null); setEditingDesc(false); setEditingDate(false) }}>
               <X size={22} color="white" />
             </button>
           </div>
-          <div className="flex flex-1 items-center justify-center px-4">
+
+          {/* Imagen con flechas de navegación (F016) */}
+          <div className="relative flex flex-1 items-center justify-center px-4">
+            {selectedIndex > 0 && (
+              <button
+                onClick={goToPrev}
+                className="absolute left-2 z-10 flex h-9 w-9 items-center justify-center rounded-full"
+                style={{ background: 'rgba(0,0,0,0.4)' }}
+              >
+                <ChevronLeft size={20} color="white" />
+              </button>
+            )}
             <img
               src={base64ToDataUrl(selected.imageData)}
               alt=""
               className="max-h-full max-w-full rounded-xl object-contain"
             />
+            {selectedIndex < photos.length - 1 && (
+              <button
+                onClick={goToNext}
+                className="absolute right-2 z-10 flex h-9 w-9 items-center justify-center rounded-full"
+                style={{ background: 'rgba(0,0,0,0.4)' }}
+              >
+                <ChevronRight size={20} color="white" />
+              </button>
+            )}
           </div>
+
+          {/* Indicador de posición */}
+          {photos.length > 1 && (
+            <p className="text-center text-xs text-white/40 pt-2">
+              {selectedIndex + 1} / {photos.length}
+            </p>
+          )}
 
           {/* Descripción editable */}
           <div className="px-4 py-2">
@@ -296,7 +435,6 @@ export default function Gallery() {
                 <button
                   onClick={async () => {
                     await storageService.updatePhoto(selected.id, { description: descInput.trim() || undefined })
-                    setSelected({ ...selected, description: descInput.trim() || undefined })
                     setEditingDesc(false)
                     await loadPhotos()
                   }}
@@ -305,11 +443,7 @@ export default function Gallery() {
                 >
                   <Check size={16} />
                 </button>
-                <button
-                  onClick={() => setEditingDesc(false)}
-                  className="rounded-xl px-3 py-2 text-sm"
-                  style={{ color: 'rgba(255,255,255,0.5)' }}
-                >
+                <button onClick={() => setEditingDesc(false)} className="rounded-xl px-3 py-2 text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
                   <X size={16} />
                 </button>
               </div>
