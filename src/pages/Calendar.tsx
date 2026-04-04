@@ -364,8 +364,9 @@ export default function Calendar() {
     const isCareLink = ev.type === 'care' && ev.careId && ev.bonsaiId
     return (
       <div
-        className="flex items-start gap-3 px-4 py-3"
+        className={`flex items-start gap-3 px-4 py-3${isCareLink ? ' cursor-pointer active:opacity-70' : ''}`}
         style={{ borderBottom: '1px solid var(--border)', opacity: ev.completed ? 0.5 : 1 }}
+        onClick={isCareLink ? () => navigate(`/bonsai/${ev.bonsaiId}/care/${ev.careId}`) : undefined}
       >
         <div
           className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full"
@@ -374,12 +375,11 @@ export default function Calendar() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p
-              className={`text-sm font-medium${isCareLink ? ' underline underline-offset-2 cursor-pointer' : ''}`}
+              className="text-sm font-medium"
               style={{
                 color: isCareLink ? 'var(--color-accent)' : 'var(--text1)',
                 textDecoration: ev.completed ? 'line-through' : undefined,
               }}
-              onClick={isCareLink ? () => navigate(`/bonsai/${ev.bonsaiId}/care/${ev.careId}`) : undefined}
             >
               {ev.title}
             </p>
@@ -402,7 +402,7 @@ export default function Calendar() {
         <div className="flex shrink-0 items-center gap-1">
           {(ev.type === 'manual-reminder' || ev.type === 'followup-reminder') && !ev.completed && (
             <button
-              onClick={() => setEditingEvent(ev)}
+              onClick={(e) => { e.stopPropagation(); setEditingEvent(ev) }}
               className="flex items-center gap-1 rounded-xl px-2 py-1 text-xs"
               style={{ background: 'var(--bg3)', color: 'var(--text3)' }}
             >
@@ -411,7 +411,7 @@ export default function Calendar() {
           )}
           {!ev.completed && (
             <button
-              onClick={() => updateEvent(ev.id, { completed: true })}
+              onClick={(e) => { e.stopPropagation(); updateEvent(ev.id, { completed: true }) }}
               className="flex items-center gap-1 rounded-xl px-2 py-1 text-xs"
               style={{ background: 'var(--bg3)', color: 'var(--text3)' }}
             >

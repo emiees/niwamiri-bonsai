@@ -11,27 +11,41 @@ import { compressImage, base64ToDataUrl } from '@/utils/images'
 import { formatDate } from '@/utils/dates'
 import type { Photo } from '@/db/schema'
 
-// ── EXIF date extraction ────────────────────────��────────────────
+// ── EXIF datetime extraction ─────────────────────────────────────
 // Busca el patrón "YYYY:MM:DD HH:MM:SS" en los primeros 64 KB del archivo JPEG.
-function extractExifDate(buffer: ArrayBuffer): string | null {
+// Retorna fecha ISO y timestamp completo (con hora) para ordenar correctamente.
+function extractExifDatetime(buffer: ArrayBuffer): { date: string; takenAt: number } | null {
   const bytes = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 65536))
+  const isDigit = (b: number) => b >= 0x30 && b <= 0x39
   for (let i = 0; i < bytes.length - 19; i++) {
     if (
       bytes[i + 4] === 0x3a && bytes[i + 7] === 0x3a &&
       bytes[i + 10] === 0x20 && bytes[i + 13] === 0x3a && bytes[i + 16] === 0x3a
     ) {
-      const isDigit = (b: number) => b >= 0x30 && b <= 0x39
       if (
         isDigit(bytes[i]) && isDigit(bytes[i + 1]) && isDigit(bytes[i + 2]) && isDigit(bytes[i + 3]) &&
         isDigit(bytes[i + 5]) && isDigit(bytes[i + 6]) &&
-        isDigit(bytes[i + 8]) && isDigit(bytes[i + 9])
+        isDigit(bytes[i + 8]) && isDigit(bytes[i + 9]) &&
+        isDigit(bytes[i + 11]) && isDigit(bytes[i + 12]) &&
+        isDigit(bytes[i + 14]) && isDigit(bytes[i + 15]) &&
+        isDigit(bytes[i + 17]) && isDigit(bytes[i + 18])
       ) {
         const year = String.fromCharCode(bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3])
         const month = String.fromCharCode(bytes[i + 5], bytes[i + 6])
         const day = String.fromCharCode(bytes[i + 8], bytes[i + 9])
+        const hour = String.fromCharCode(bytes[i + 11], bytes[i + 12])
+        const min = String.fromCharCode(bytes[i + 14], bytes[i + 15])
+        const sec = String.fromCharCode(bytes[i + 17], bytes[i + 18])
         const y = parseInt(year), m = parseInt(month), d = parseInt(day)
-        if (y >= 1990 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-          return `${year}-${month}-${day}`
+        const h = parseInt(hour), mi = parseInt(min), s = parseInt(sec)
+        if (
+          y >= 1990 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31 &&
+          h >= 0 && h <= 23 && mi >= 0 && mi <= 59 && s >= 0 && s <= 59
+        ) {
+          return {
+            date: `${year}-${month}-${day}`,
+            takenAt: new Date(y, m - 1, d, h, mi, s).getTime(),
+          }
         }
       }
     }
@@ -53,11 +67,13 @@ function groupByMonth(photos: Photo[]): { label: string; photos: Photo[] }[] {
       const [year, month] = key.split('-')
       const d = new Date(parseInt(year), parseInt(month) - 1, 1)
       const label = d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
-      return { label: label.charAt(0).toUpperCase() + label.slice(1), photos }
+      // Ordenar fotos dentro del grupo por timestamp completo (desc)
+      const sorted = [...photos].sort((a, b) => b.takenAt - a.takenAt)
+      return { label: label.charAt(0).toUpperCase() + label.slice(1), photos: sorted }
     })
 }
 
-type PendingPhoto = { b64: string; date: string }
+type PendingPhoto = { b64: string; date: string; takenAt: number }
 
 export default function Gallery() {
   const { id: bonsaiId } = useParams<{ id: string }>()
@@ -95,7 +111,8 @@ export default function Gallery() {
     if (!bonsaiId) return
     setLoading(true)
     const p = await storageService.getPhotosByBonsai(bonsaiId)
-    setPhotos(p)
+    // Ordenar por timestamp completo (incluye hora EXIF) de más reciente a más antigua
+    setPhotos([...p].sort((a, b) => b.takenAt - a.takenAt))
     setLoading(false)
   }
 
@@ -109,14 +126,15 @@ export default function Gallery() {
     const pending: PendingPhoto[] = []
     for (const file of files) {
       const b64 = await compressImage(file, 1200, quality)
-      // Intentar extraer fecha EXIF; fallback a fecha actual
+      // Intentar extraer fecha y hora EXIF; fallback a fecha actual al mediodía
       let date = todayISO
+      let takenAt = new Date(todayISO + 'T12:00:00').getTime()
       try {
         const buffer = await file.arrayBuffer()
-        const exifDate = extractExifDate(buffer)
-        if (exifDate) date = exifDate
+        const exif = extractExifDatetime(buffer)
+        if (exif) { date = exif.date; takenAt = exif.takenAt }
       } catch { /* sin EXIF, usar hoy */ }
-      pending.push({ b64, date })
+      pending.push({ b64, date, takenAt })
     }
     setQueue(pending)
     e.target.value = ''
@@ -126,9 +144,8 @@ export default function Gallery() {
     if (!queue.length || !bonsaiId) return
     setSaving(true)
     const current = queue[0]
-    const takenAt = new Date(current.date + 'T12:00:00').getTime()
     const photoId = await storageService.savePhoto({
-      bonsaiId, imageData: current.b64, takenAt,
+      bonsaiId, imageData: current.b64, takenAt: current.takenAt,
       isMainPhoto: photos.length === 0,
     })
     if (photos.length === 0) {
@@ -292,7 +309,10 @@ export default function Gallery() {
                 type="date"
                 value={pendingPhoto.date}
                 max={todayISO}
-                onChange={(e) => setQueue((q) => [{ ...q[0], date: e.target.value }, ...q.slice(1)])}
+                onChange={(e) => {
+                  const newDate = e.target.value
+                  setQueue((q) => [{ ...q[0], date: newDate, takenAt: new Date(newDate + 'T12:00:00').getTime() }, ...q.slice(1)])
+                }}
                 className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
                 style={{ background: 'var(--bg3)', color: 'var(--text1)', border: '1px solid var(--border)' }}
               />
@@ -342,13 +362,12 @@ export default function Gallery() {
             className="flex items-center justify-between px-4 py-3"
             style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
           >
-            {/* F015: fecha clickeable para editar */}
+            {/* F015: fecha+hora clickeable para editar */}
             {editingDate ? (
               <div className="flex items-center gap-2">
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={dateInput}
-                  max={todayISO}
                   onChange={(e) => setDateInput(e.target.value)}
                   className="rounded-xl px-2 py-1 text-sm outline-none"
                   style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}
@@ -357,7 +376,7 @@ export default function Gallery() {
                 <button
                   onClick={async () => {
                     if (!dateInput) return
-                    const takenAt = new Date(dateInput + 'T12:00:00').getTime()
+                    const takenAt = new Date(dateInput).getTime()
                     await storageService.updatePhoto(selected.id, { takenAt })
                     setEditingDate(false)
                     await loadPhotos()
@@ -374,9 +393,21 @@ export default function Gallery() {
             ) : (
               <button
                 className="flex items-center gap-1.5"
-                onClick={() => { setDateInput(new Date(selected.takenAt).toISOString().split('T')[0]); setEditingDate(true) }}
+                onClick={() => {
+                  // Formato local YYYY-MM-DDTHH:MM para datetime-local input
+                  const d = new Date(selected.takenAt)
+                  const pad = (n: number) => String(n).padStart(2, '0')
+                  const local = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                  setDateInput(local)
+                  setEditingDate(true)
+                }}
               >
-                <p className="text-sm text-white/70">{formatDate(selected.takenAt)}</p>
+                <div className="text-left">
+                  <p className="text-sm text-white/70">{formatDate(selected.takenAt)}</p>
+                  <p className="text-xs text-white/40">
+                    {new Date(selected.takenAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
                 <Pencil size={12} color="rgba(255,255,255,0.4)" />
               </button>
             )}

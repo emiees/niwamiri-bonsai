@@ -10,6 +10,7 @@ import { useAppStore } from '@/store/appStore'
 import { useSeason } from '@/hooks/useSeason'
 import { createAIService } from '@/hooks/useAI'
 import { compressImage, base64ToDataUrl } from '@/utils/images'
+import MarkdownMessage from '@/components/MarkdownMessage'
 type Message = { role: 'user' | 'assistant'; content: string; imageBase64?: string; timestamp: number; isError?: boolean }
 
 function formatAIError(raw: string): string {
@@ -225,7 +226,11 @@ export default function AIAssistant() {
                         className="mb-2 max-w-full rounded-xl"
                       />
                     )}
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    {msg.role === 'assistant' ? (
+                      <MarkdownMessage content={msg.content} color="var(--text1)" />
+                    ) : (
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    )}
                   </div>
                 )}
               </div>
