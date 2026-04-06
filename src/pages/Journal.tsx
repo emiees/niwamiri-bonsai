@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, X, BookOpen, Tag, Trash2, Camera } from 'lucide-react'
+import { Plus, X, BookOpen, Tag, Trash2, Camera, ImagePlus } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { storageService } from '@/services/storage/DexieStorageService'
@@ -10,11 +10,12 @@ import type { JournalNote } from '@/db/schema'
 // ── Utilidades de fecha ─────────────────────────────────────────
 
 function tsToInputDate(ts: number): string {
-  return new Date(ts).toISOString().split('T')[0]
+  const d = new Date(ts)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function inputDateToTs(s: string): number {
-  return new Date(s + 'T00:00:00').getTime()
+  return new Date(s + 'T12:00:00').getTime()
 }
 
 function formatDate(ts: number, lang: string): string {
@@ -49,7 +50,8 @@ function NoteSheet({
   const [photos, setPhotos]   = useState<string[]>(initial?.photos ?? [])
   const [saving, setSaving]   = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)   // galería
+  const cameraInputRef = useRef<HTMLInputElement>(null)  // cámara
 
   async function addPhoto(file: File) {
     const b64 = await compressImage(file, 1200, 0.85)
@@ -239,24 +241,27 @@ function NoteSheet({
                 </div>
               ))}
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => cameraInputRef.current?.click()}
                 className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-xl"
                 style={{ background: 'var(--card)', border: '2px dashed var(--border)', color: 'var(--text3)' }}
               >
                 <Camera size={18} />
-                <span className="text-[10px]">{lang === 'es' ? 'Agregar' : 'Add'}</span>
+                <span className="text-[10px]">{lang === 'es' ? 'Cámara' : 'Camera'}</span>
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-xl"
+                style={{ background: 'var(--card)', border: '2px dashed var(--border)', color: 'var(--text3)' }}
+              >
+                <ImagePlus size={18} />
+                <span className="text-[10px]">{lang === 'es' ? 'Galería' : 'Gallery'}</span>
               </button>
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                Array.from(e.target.files ?? []).forEach((f) => addPhoto(f))
-                e.target.value = ''
-              }}
+            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+              onChange={(e) => { Array.from(e.target.files ?? []).forEach((f) => addPhoto(f)); e.target.value = '' }}
+            />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+              onChange={(e) => { Array.from(e.target.files ?? []).forEach((f) => addPhoto(f)); e.target.value = '' }}
             />
           </div>
 
@@ -389,7 +394,7 @@ export default function Journal() {
       <Header title={lang === 'es' ? 'Bitácora' : 'Journal'} />
 
       {/* Buscador */}
-      <div className="px-4 pt-2">
+      <div className="px-4 pt-3">
         <input
           type="text"
           value={search}

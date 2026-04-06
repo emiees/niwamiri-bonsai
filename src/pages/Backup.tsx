@@ -4,6 +4,7 @@ import { Download, Upload, Loader2, CheckCircle2, AlertCircle, Share2 } from 'lu
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { exportBackup, importBackup } from '@/utils/backup'
+import { localToday } from '@/utils/dates'
 import { useAppStore } from '@/store/appStore'
 import { storageService } from '@/services/storage/DexieStorageService'
 
@@ -34,22 +35,35 @@ export default function Backup() {
     setExportStatus('loading')
     try {
       const blob = await exportBackup()
-      const date = new Date().toISOString().slice(0, 10)
+      const date = localToday()
       const filename = `niwamiri_backup_${date}.zip`
 
-      // En móvil (iOS/Android): abre el share sheet nativo.
-      // El usuario puede elegir "Guardar en Archivos", "Agregar a Drive", etc.
-      const file = new File([blob], filename, { type: 'application/zip' })
-      if (canWebShare() && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'NiwaMirî Backup' })
+      // application/octet-stream es el MIME genérico que Android acepta en el share
+      // sheet para cualquier binario. application/zip funciona en iOS pero Android
+      // lo rechaza en muchos dispositivos porque no hay apps registradas para ese MIME.
+      const file = new File([blob], filename, { type: 'application/octet-stream' })
+
+      // canShare con archivos puede lanzar excepción en algunos Android → try propio
+      let canShareFiles = false
+      if (canWebShare()) {
+        try { canShareFiles = navigator.canShare({ files: [file] }) } catch { /* no soportado */ }
+      }
+
+      if (canShareFiles) {
+        try {
+          await navigator.share({ files: [file], title: 'NiwaMirî Backup' })
+        } catch (shareErr) {
+          // AbortError = el usuario cerró el share sheet sin guardar, no es error real
+          if ((shareErr as Error).name === 'AbortError') {
+            setExportStatus('idle')
+            return
+          }
+          // Otro error en share (raro si canShare pasó) → caer a descarga directa
+          triggerDownload(blob, filename)
+        }
       } else {
-        // Fallback desktop: descarga directa
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = filename
-        a.click()
-        URL.revokeObjectURL(url)
+        // Desktop o Android sin soporte de share con archivos: descarga directa
+        triggerDownload(blob, filename)
       }
 
       const now = Date.now()
@@ -58,14 +72,19 @@ export default function Backup() {
       setExportStatus('ok')
       setTimeout(() => setExportStatus('idle'), 3000)
     } catch (err) {
-      // AbortError = el usuario cerró el share sheet sin guardar, no es un error
-      if ((err as Error).name === 'AbortError') {
-        setExportStatus('idle')
-      } else {
-        setExportStatus('error')
-        setTimeout(() => setExportStatus('idle'), 3000)
-      }
+      console.error('Backup export error:', err)
+      setExportStatus('error')
+      setTimeout(() => setExportStatus('idle'), 3000)
     }
+  }
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {

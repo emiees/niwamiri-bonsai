@@ -40,6 +40,11 @@ export default function WelcomeScreen() {
   const [countdown, setCountdown] = useState(10)
   const [newRecords, setNewRecords] = useState<{ cares: number; photos: number; notes: number } | null>(null)
 
+  // Derivados de backup — calculados aquí para poder usarlos en los effects
+  const totalNew = (newRecords?.cares ?? 0) + (newRecords?.photos ?? 0) + (newRecords?.notes ?? 0)
+  const neverBacked = !config?.lastBackupAt && bonsais.length > 0
+  const showBackupWarning = neverBacked || totalNew > 3
+
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY)) return
     sessionStorage.setItem(SESSION_KEY, '1')
@@ -61,19 +66,16 @@ export default function WelcomeScreen() {
 
   useEffect(() => {
     if (!visible) return
+    // Sin auto-cierre cuando hay alerta de backup (se espera que el usuario la lea)
+    if (showBackupWarning) return
     if (countdown <= 0) { setVisible(false); return }
     const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
     return () => clearTimeout(timer)
-  }, [visible, countdown])
+  }, [visible, countdown, showBackupWarning])
 
   if (!visible) return null
 
   const greeting = SEASON_GREETINGS[season]
-
-  // Alerta de backup: sin backup nunca, o con registros nuevos significativos (> 3)
-  const totalNew = (newRecords?.cares ?? 0) + (newRecords?.photos ?? 0) + (newRecords?.notes ?? 0)
-  const neverBacked = !config?.lastBackupAt && bonsais.length > 0
-  const showBackupWarning = neverBacked || totalNew > 3
 
   function backupWarningText(): { title: string; subtitle: string } {
     if (neverBacked) {
@@ -110,14 +112,21 @@ export default function WelcomeScreen() {
         className="w-full max-w-sm rounded-3xl flex flex-col gap-5 p-6"
         style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
       >
-        {/* Saludo estacional */}
+        {/* Cabecera: logo + nombre + bienvenida estacional + tagline */}
         <div className="text-center">
-          <p className="text-4xl mb-2">{greeting.emoji}</p>
-          <p className="text-lg font-bold" style={{ color: 'var(--text1)' }}>
-            {lang === 'es' ? greeting.es : greeting.en}
+          <img
+            src={`${import.meta.env.BASE_URL}favicon.svg`}
+            alt="NiwaMirî"
+            className="mx-auto mb-3 h-16 w-16"
+          />
+          <p className="text-base font-semibold" style={{ color: 'var(--text2)' }}>
+            NiwaMirî <span className="text-xs font-normal" style={{ opacity: 0.6 }}>v1.2</span>
+          </p>
+          <p className="text-xl font-bold mt-2" style={{ color: 'var(--text1)' }}>
+            {greeting.emoji} {lang === 'es' ? greeting.es : greeting.en}
           </p>
           <p className="text-xs mt-1" style={{ color: 'var(--text3)' }}>
-            NiwaMirî <span style={{ color: 'var(--text3)', opacity: 0.6 }}>v1.2</span>
+            {lang === 'es' ? 'Tu jardín pequeño te espera' : 'Your little garden awaits'}
           </p>
         </div>
 
@@ -150,11 +159,11 @@ export default function WelcomeScreen() {
           </button>
         )}
 
-        {/* Alerta de backup inteligente */}
+        {/* Alerta de backup inteligente — pulso cuando nunca se hizo backup */}
         {showBackupWarning && (
           <button
             onClick={() => { dismiss(); navigate('/settings/backup') }}
-            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left"
+            className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left${neverBacked ? ' animate-pulse' : ''}`}
             style={{
               background: neverBacked ? 'rgba(239,68,68,0.12)' : 'rgba(99,102,241,0.12)',
               border: `1px solid ${neverBacked ? 'rgba(239,68,68,0.3)' : 'rgba(99,102,241,0.3)'}`,
@@ -162,7 +171,7 @@ export default function WelcomeScreen() {
           >
             <HardDrive size={18} style={{ color: neverBacked ? '#ef4444' : 'rgb(129,140,248)', flexShrink: 0 }} />
             <div>
-              <p className="text-sm font-medium" style={{ color: neverBacked ? '#ef4444' : 'rgb(129,140,248)' }}>
+              <p className="text-sm font-bold" style={{ color: neverBacked ? '#ef4444' : 'rgb(129,140,248)' }}>
                 {backupWarningText().title}
               </p>
               <p className="text-xs" style={{ color: 'var(--text3)' }}>
@@ -172,13 +181,15 @@ export default function WelcomeScreen() {
           </button>
         )}
 
-        {/* Botón Entrar */}
+        {/* Botón Entrar — sin temporizador si hay alerta de backup */}
         <button
           onClick={dismiss}
           className="h-12 w-full rounded-2xl text-sm font-semibold"
           style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
         >
-          {lang === 'es' ? `Entrar${countdown > 0 ? ` (${countdown})` : ''}` : `Enter${countdown > 0 ? ` (${countdown})` : ''}`}
+          {lang === 'es'
+            ? `Entrar${!showBackupWarning && countdown > 0 ? ` (${countdown})` : ''}`
+            : `Enter${!showBackupWarning && countdown > 0 ? ` (${countdown})` : ''}`}
         </button>
       </div>
     </div>

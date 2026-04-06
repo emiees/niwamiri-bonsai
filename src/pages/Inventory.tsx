@@ -7,17 +7,7 @@ import Header from '@/components/layout/Header'
 import BonsaiCard from '@/components/bonsai/BonsaiCard'
 import { useBonsaiStore } from '@/store/bonsaiStore'
 import { storageService } from '@/services/storage/DexieStorageService'
-import { useSeason } from '@/hooks/useSeason'
 import type { BonsaiStatus, BonsaiStyle, BonsaiSize } from '@/db/schema'
-
-// ── Season chip config ──────────────────────────────────────────
-
-const SEASON_LABELS: Record<string, { es: string; en: string; emoji: string }> = {
-  spring: { es: 'Primavera', en: 'Spring',  emoji: '🌸' },
-  summer: { es: 'Verano',    en: 'Summer',  emoji: '☀️' },
-  autumn: { es: 'Otoño',     en: 'Autumn',  emoji: '🍂' },
-  winter: { es: 'Invierno',  en: 'Winter',  emoji: '❄️' },
-}
 
 // ── Add bonsai sheet ────────────────────────────────────────────
 
@@ -355,7 +345,6 @@ export default function Inventory() {
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
 
   const { bonsais, loading, fetchBonsais } = useBonsaiStore()
-  const season = useSeason()
 
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const [search, setSearch] = useState('')
@@ -386,12 +375,8 @@ export default function Inventory() {
     const now = Date.now()
     const sevenDays = 7 * 24 * 60 * 60 * 1000
     storageService.getEventsByDateRange(0, now + sevenDays).then((events) => {
-      const ids = new Set(
-        events
-          .filter((e) => !e.completed && e.bonsaiId && e.date <= now + sevenDays)
-          .map((e) => e.bonsaiId!)
-      )
-      setPendingIds(ids)
+      const pending = events.filter((e) => !e.completed && e.bonsaiId && e.date <= now + sevenDays)
+      setPendingIds(new Set(pending.map((e) => e.bonsaiId!)))
     }).catch(() => {})
   }, [bonsais.length])
 
@@ -423,18 +408,6 @@ export default function Inventory() {
     return list
   }, [bonsais, search, selectedSpecies, selectedTags])
 
-  const seasonInfo = SEASON_LABELS[season]
-  const pendingCount = pendingIds.size
-
-  const seasonChip = (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium"
-      style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text2)' }}
-    >
-      {seasonInfo.emoji} {lang === 'es' ? seasonInfo.es : seasonInfo.en}
-    </span>
-  )
-
   return (
     <AppShell showNav>
       <Header
@@ -463,21 +436,8 @@ export default function Inventory() {
         }
       />
 
-      {/* Estación + pendientes — sobre el buscador, alineado a la derecha */}
-      <div className="flex items-center justify-end gap-2 px-4 pt-2">
-        {seasonChip}
-        {pendingCount > 0 && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium"
-            style={{ background: 'rgba(251,146,60,0.15)', color: 'rgb(251,146,60)' }}
-          >
-            ⚠️ {pendingCount} {lang === 'es' ? 'pendiente' + (pendingCount > 1 ? 's' : '') : 'pending'}
-          </span>
-        )}
-      </div>
-
       {/* Search */}
-      <div className="px-4 pt-1">
+      <div className="px-4 pt-3">
         <input
           type="text"
           value={search}
@@ -488,9 +448,9 @@ export default function Inventory() {
         />
       </div>
 
-      {/* Species + tag filter chips */}
-      {(speciesOptions.length > 0 || tagOptions.length > 0) && (
-        <div className="flex gap-2 overflow-x-auto px-4 pt-3 pb-2 scrollbar-none">
+      {/* Fila 1: filtros por especie */}
+      {speciesOptions.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto px-4 pt-3 pb-1 scrollbar-none">
           <button
             onClick={() => { setSelectedSpecies([]); setSelectedTags([]) }}
             className="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium"
@@ -520,9 +480,12 @@ export default function Inventory() {
               {sp}
             </button>
           ))}
-          {tagOptions.length > 0 && speciesOptions.length > 0 && (
-            <span className="shrink-0 self-center" style={{ color: 'var(--border)', fontSize: 18 }}>|</span>
-          )}
+        </div>
+      )}
+
+      {/* Fila 2: filtros por etiqueta (solo si el usuario tiene labels) */}
+      {tagOptions.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto px-4 pt-1 pb-2 scrollbar-none">
           {tagOptions.map((tag) => (
             <button
               key={tag}

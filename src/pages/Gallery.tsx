@@ -1,57 +1,16 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Camera, X, Star, Trash2, LayoutGrid, Clock, Check, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
+import { Camera, X, Star, Trash2, LayoutGrid, Clock, Check, ChevronLeft, ChevronRight, Pencil, ImagePlus, Plus } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { useBonsaiStore } from '@/store/bonsaiStore'
 import { storageService } from '@/services/storage/DexieStorageService'
 import { useAppStore } from '@/store/appStore'
-import { compressImage, base64ToDataUrl } from '@/utils/images'
-import { formatDate } from '@/utils/dates'
+import { compressImage, base64ToDataUrl, extractExifDatetime } from '@/utils/images'
+import { formatDate, localToday, dateStrToTs } from '@/utils/dates'
 import type { Photo } from '@/db/schema'
 
-// ── EXIF datetime extraction ─────────────────────────────────────
-// Busca el patrón "YYYY:MM:DD HH:MM:SS" en los primeros 64 KB del archivo JPEG.
-// Retorna fecha ISO y timestamp completo (con hora) para ordenar correctamente.
-function extractExifDatetime(buffer: ArrayBuffer): { date: string; takenAt: number } | null {
-  const bytes = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 65536))
-  const isDigit = (b: number) => b >= 0x30 && b <= 0x39
-  for (let i = 0; i < bytes.length - 19; i++) {
-    if (
-      bytes[i + 4] === 0x3a && bytes[i + 7] === 0x3a &&
-      bytes[i + 10] === 0x20 && bytes[i + 13] === 0x3a && bytes[i + 16] === 0x3a
-    ) {
-      if (
-        isDigit(bytes[i]) && isDigit(bytes[i + 1]) && isDigit(bytes[i + 2]) && isDigit(bytes[i + 3]) &&
-        isDigit(bytes[i + 5]) && isDigit(bytes[i + 6]) &&
-        isDigit(bytes[i + 8]) && isDigit(bytes[i + 9]) &&
-        isDigit(bytes[i + 11]) && isDigit(bytes[i + 12]) &&
-        isDigit(bytes[i + 14]) && isDigit(bytes[i + 15]) &&
-        isDigit(bytes[i + 17]) && isDigit(bytes[i + 18])
-      ) {
-        const year = String.fromCharCode(bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3])
-        const month = String.fromCharCode(bytes[i + 5], bytes[i + 6])
-        const day = String.fromCharCode(bytes[i + 8], bytes[i + 9])
-        const hour = String.fromCharCode(bytes[i + 11], bytes[i + 12])
-        const min = String.fromCharCode(bytes[i + 14], bytes[i + 15])
-        const sec = String.fromCharCode(bytes[i + 17], bytes[i + 18])
-        const y = parseInt(year), m = parseInt(month), d = parseInt(day)
-        const h = parseInt(hour), mi = parseInt(min), s = parseInt(sec)
-        if (
-          y >= 1990 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31 &&
-          h >= 0 && h <= 23 && mi >= 0 && mi <= 59 && s >= 0 && s <= 59
-        ) {
-          return {
-            date: `${year}-${month}-${day}`,
-            takenAt: new Date(y, m - 1, d, h, mi, s).getTime(),
-          }
-        }
-      }
-    }
-  }
-  return null
-}
 
 function groupByMonth(photos: Photo[]): { label: string; photos: Photo[] }[] {
   const groups: Record<string, Photo[]> = {}
@@ -67,8 +26,10 @@ function groupByMonth(photos: Photo[]): { label: string; photos: Photo[] }[] {
       const [year, month] = key.split('-')
       const d = new Date(parseInt(year), parseInt(month) - 1, 1)
       const label = d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
-      // Ordenar fotos dentro del grupo por timestamp completo (desc)
-      const sorted = [...photos].sort((a, b) => b.takenAt - a.takenAt)
+      // Ordenar fotos dentro del grupo DESC por takenAt; desempate por createdAt
+      const sorted = [...photos].sort((a, b) =>
+        b.takenAt !== a.takenAt ? b.takenAt - a.takenAt : b.createdAt - a.createdAt
+      )
       return { label: label.charAt(0).toUpperCase() + label.slice(1), photos: sorted }
     })
 }
@@ -100,8 +61,10 @@ export default function Gallery() {
   const [editingDate, setEditingDate] = useState(false)
   const [dateInput, setDateInput] = useState('')
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const todayISO = new Date().toISOString().split('T')[0]
+  const fileInputRef = useRef<HTMLInputElement>(null)   // galería
+  const cameraInputRef = useRef<HTMLInputElement>(null)  // cámara
+  const [fabOpen, setFabOpen] = useState(false)
+  const todayISO = localToday()
 
   // Foto actualmente seleccionada en el lightbox
   const selected = photos.find((p) => p.id === selectedId) ?? null
@@ -128,7 +91,7 @@ export default function Gallery() {
       const b64 = await compressImage(file, 1200, quality)
       // Intentar extraer fecha y hora EXIF; fallback a fecha actual al mediodía
       let date = todayISO
-      let takenAt = new Date(todayISO + 'T12:00:00').getTime()
+      let takenAt = dateStrToTs(todayISO)
       try {
         const buffer = await file.arrayBuffer()
         const exif = extractExifDatetime(buffer)
@@ -240,7 +203,7 @@ export default function Gallery() {
             {lang === 'es' ? 'Sin fotos aún' : 'No photos yet'}
           </p>
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setFabOpen(true)}
             className="rounded-xl px-4 py-2 text-sm font-medium"
             style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
           >
@@ -266,19 +229,43 @@ export default function Gallery() {
         </div>
       )}
 
-      {/* FAB */}
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        className="fixed bottom-6 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full shadow-lg"
-        style={{ background: 'var(--color-accent)' }}
-      >
-        <Camera size={22} style={{ color: 'var(--green1)' }} />
-      </button>
-      {/* F013: multiple=true para selección masiva */}
-      <input
-        ref={fileInputRef} type="file" accept="image/*" multiple
-        className="hidden" onChange={onFileChange}
-      />
+      {/* FAB expandible: cámara + galería */}
+      {fabOpen && (
+        <div className="fixed inset-0 z-20" onClick={() => setFabOpen(false)} />
+      )}
+      <div className="fixed bottom-6 right-4 z-30 flex flex-col items-end gap-2">
+        {fabOpen && (
+          <>
+            <button
+              onClick={() => { setFabOpen(false); cameraInputRef.current?.click() }}
+              className="flex items-center gap-2 rounded-full px-4 py-2.5 shadow-lg text-sm font-medium"
+              style={{ background: 'var(--bg2)', color: 'var(--text1)', border: '1px solid var(--border)' }}
+            >
+              <Camera size={16} />
+              {lang === 'es' ? 'Cámara' : 'Camera'}
+            </button>
+            <button
+              onClick={() => { setFabOpen(false); fileInputRef.current?.click() }}
+              className="flex items-center gap-2 rounded-full px-4 py-2.5 shadow-lg text-sm font-medium"
+              style={{ background: 'var(--bg2)', color: 'var(--text1)', border: '1px solid var(--border)' }}
+            >
+              <ImagePlus size={16} />
+              {lang === 'es' ? 'Galería' : 'Gallery'}
+            </button>
+          </>
+        )}
+        <button
+          onClick={() => setFabOpen((o) => !o)}
+          className="flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform"
+          style={{ background: 'var(--color-accent)', transform: fabOpen ? 'rotate(45deg)' : 'none' }}
+        >
+          <Plus size={24} style={{ color: 'var(--green1)' }} />
+        </button>
+      </div>
+      {/* Galería del dispositivo: multiple */}
+      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onFileChange} />
+      {/* Cámara: capture fuerza la cámara directamente en iOS y Android */}
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileChange} />
 
       {/* Modal confirmar foto + fecha (F013: procesa de a una de la cola) */}
       {pendingPhoto && (
@@ -311,7 +298,7 @@ export default function Gallery() {
                 max={todayISO}
                 onChange={(e) => {
                   const newDate = e.target.value
-                  setQueue((q) => [{ ...q[0], date: newDate, takenAt: new Date(newDate + 'T12:00:00').getTime() }, ...q.slice(1)])
+                  setQueue((q) => [{ ...q[0], date: newDate, takenAt: dateStrToTs(newDate) }, ...q.slice(1)])
                 }}
                 className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
                 style={{ background: 'var(--bg3)', color: 'var(--text1)', border: '1px solid var(--border)' }}
