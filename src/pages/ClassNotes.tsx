@@ -45,7 +45,8 @@ function NoteSheet({
     setSaving(true)
     const data = {
       species: species.trim(),
-      specimenId: bonsaiId,
+      // Al editar conservar el specimenId original; al crear usar el árbol actual
+      specimenId: note ? note.specimenId : bonsaiId,
       title: title.trim() || undefined,
       content: content.trim(),
       classDate: new Date(classDate + 'T12:00:00').getTime(),
@@ -231,9 +232,14 @@ export default function ClassNotes() {
                     <span className="text-xs rounded-full px-2 py-0.5" style={{ background: 'var(--bg3)', color: 'var(--text3)' }}>
                       <em>{note.species}</em>
                     </span>
-                    {note.specimenId && (
+                    {note.specimenId && note.specimenId === bonsaiId && (
                       <span className="text-xs rounded-full px-2 py-0.5" style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}>
                         {lang === 'es' ? 'este árbol' : 'this tree'}
+                      </span>
+                    )}
+                    {note.specimenId && note.specimenId !== bonsaiId && (
+                      <span className="text-xs rounded-full px-2 py-0.5" style={{ background: 'var(--bg3)', color: 'var(--text3)' }}>
+                        {lang === 'es' ? 'otro ejemplar' : 'other specimen'}
                       </span>
                     )}
                     <span className="text-xs" style={{ color: 'var(--text3)' }}>

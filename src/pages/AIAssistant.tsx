@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Send, Loader2, Trash2, Camera, X } from 'lucide-react'
+import { Send, Loader2, Trash2, Camera, X, ImagePlus } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { useBonsaiStore } from '@/store/bonsaiStore'
@@ -43,7 +43,8 @@ export default function AIAssistant() {
   const [thinking, setThinking] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)   // galería
+  const cameraInputRef = useRef<HTMLInputElement>(null)  // cámara
 
   // Load existing conversation
   useEffect(() => {
@@ -274,11 +275,18 @@ export default function AIAssistant() {
             )}
             <div className="flex items-end gap-2">
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => cameraInputRef.current?.click()}
                 className="mb-0.5 rounded-full p-2.5"
                 style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text3)' }}
               >
                 <Camera size={18} />
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="mb-0.5 rounded-full p-2.5"
+                style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text3)' }}
+              >
+                <ImagePlus size={18} />
               </button>
               <textarea
                 value={input}
@@ -307,10 +315,8 @@ export default function AIAssistant() {
             </div>
           </div>
 
-          <input
-            ref={fileInputRef} type="file" accept="image/*" capture="environment"
-            className="hidden" onChange={onFileChange}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onFileChange} />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileChange} />
         </>
       )}
     </AppShell>

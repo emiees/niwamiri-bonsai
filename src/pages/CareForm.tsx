@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Camera, X, Sparkles, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Camera, X, Sparkles, Loader2, ChevronDown, ChevronUp, ImagePlus } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { useBonsaiStore } from '@/store/bonsaiStore'
@@ -9,7 +9,7 @@ import { storageService } from '@/services/storage/DexieStorageService'
 import { useAppStore } from '@/store/appStore'
 import { useSeason } from '@/hooks/useSeason'
 import { createAIService } from '@/hooks/useAI'
-import { compressImage, base64ToDataUrl } from '@/utils/images'
+import { compressImage, base64ToDataUrl, extractExifDatetime } from '@/utils/images'
 import type { CareType, TreeCondition, Care } from '@/db/schema'
 
 const CARE_TYPES: CareType[] = [
@@ -58,7 +58,7 @@ export default function CareForm() {
   const [date, setDate] = useState(dateToInputValue(Date.now()))
   const [condition, setCondition] = useState<TreeCondition>('good')
   const [description, setDescription] = useState('')
-  const [photos, setPhotos] = useState<string[]>([])
+  const [photos, setPhotos] = useState<{ b64: string; takenAt: number }[]>([])
   const [reminderDate, setReminderDate] = useState('')
   const [reminderDesc, setReminderDesc] = useState('')
   const [saving, setSaving] = useState(false)
@@ -66,7 +66,8 @@ export default function CareForm() {
   const [aiNotes, setAiNotes] = useState('')
   const [aiNotesLoading, setAiNotesLoading] = useState(false)
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)   // galería
+  const cameraInputRef = useRef<HTMLInputElement>(null)  // cámara
 
   useEffect(() => {
     if (!bonsais.length) fetchBonsais()
@@ -130,11 +131,20 @@ export default function CareForm() {
   }
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
     const quality = config?.photoQuality === 'low' ? 0.6 : config?.photoQuality === 'medium' ? 0.75 : 0.85
-    const b64 = await compressImage(file, 1200, quality)
-    setPhotos((prev) => [...prev, b64])
+    for (const file of files) {
+      const b64 = await compressImage(file, 1200, quality)
+      // Intentar extraer timestamp EXIF; si no hay EXIF usar el momento actual
+      let takenAt = Date.now()
+      try {
+        const buffer = await file.arrayBuffer()
+        const exif = extractExifDatetime(buffer)
+        if (exif) takenAt = exif.takenAt
+      } catch { /* sin EXIF */ }
+      setPhotos((prev) => [...prev, { b64, takenAt }])
+    }
     e.target.value = ''
   }
 
@@ -162,10 +172,10 @@ export default function CareForm() {
       }
       const savedCareId = await storageService.saveCare(careData)
 
-      for (const imageData of photos) {
+      for (const photo of photos) {
         await storageService.savePhoto({
-          bonsaiId, careId: savedCareId, imageData,
-          takenAt: new Date(date + 'T12:00:00').getTime(), isMainPhoto: false,
+          bonsaiId, careId: savedCareId, imageData: photo.b64,
+          takenAt: photo.takenAt, isMainPhoto: false,
         })
       }
 
@@ -292,9 +302,9 @@ export default function CareForm() {
             {t('careForm.photos')}
           </p>
           <div className="flex flex-wrap gap-2">
-            {photos.map((b64, i) => (
+            {photos.map((photo, i) => (
               <div key={i} className="relative">
-                <img src={base64ToDataUrl(b64)} alt="" className="h-20 w-20 rounded-xl object-cover" />
+                <img src={base64ToDataUrl(photo.b64)} alt="" className="h-20 w-20 rounded-xl object-cover" />
                 <button
                   onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
                   className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full"
@@ -305,18 +315,24 @@ export default function CareForm() {
               </div>
             ))}
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => cameraInputRef.current?.click()}
               className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-xl text-xs"
               style={{ background: 'var(--card)', border: '1px dashed var(--border)', color: 'var(--text3)' }}
             >
               <Camera size={18} />
-              {lang === 'es' ? 'Foto' : 'Photo'}
+              {lang === 'es' ? 'Cámara' : 'Camera'}
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-xl text-xs"
+              style={{ background: 'var(--card)', border: '1px dashed var(--border)', color: 'var(--text3)' }}
+            >
+              <ImagePlus size={18} />
+              {lang === 'es' ? 'Galería' : 'Gallery'}
             </button>
           </div>
-          <input
-            ref={fileInputRef} type="file" accept="image/*" capture="environment"
-            className="hidden" onChange={onFileChange}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onFileChange} />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileChange} />
         </div>
 
         {/* Reminder */}

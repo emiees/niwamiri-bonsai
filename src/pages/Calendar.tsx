@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, Plus, Check, X, Edit2 } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
@@ -258,6 +258,7 @@ export default function Calendar() {
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
 
   const navigate = useNavigate()
+  const location = useLocation()
   const { events, fetchEvents, updateEvent } = useCalendarStore()
   const { bonsais, fetchBonsais } = useBonsaiStore()
 
@@ -273,6 +274,19 @@ export default function Calendar() {
   const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => { fetchBonsais() }, [fetchBonsais])
+
+  // Pre-seleccionar día si venimos de otro módulo (ej: sheet de pendientes en Inventario)
+  useEffect(() => {
+    const state = location.state as { selectDay?: string } | null
+    if (state?.selectDay) {
+      const d = new Date(state.selectDay + 'T12:00:00')
+      setView('month')
+      setViewYear(d.getFullYear())
+      setViewMonth(d.getMonth())
+      setSelectedDay(state.selectDay)
+      window.history.replaceState({}, '')
+    }
+  }, [location]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (view === 'month') {
@@ -447,7 +461,7 @@ export default function Calendar() {
       {view === 'month' ? (
         <>
           {/* Month nav */}
-          <div className="flex items-center justify-between px-4 py-2">
+          <div className="flex items-center justify-between px-4 pt-3 pb-2">
             <button onClick={prevMonth} className="rounded-full p-1.5" style={{ color: 'var(--text2)' }}>
               <ChevronLeft size={18} />
             </button>
@@ -490,7 +504,7 @@ export default function Calendar() {
         /* 30-day list */
         <div className="flex flex-col pb-4 gap-4">
           {/* Filter chips */}
-          <div className="flex flex-col gap-2 px-4">
+          <div className="flex flex-col gap-2 px-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
               {(['all', 'care', 'manual-reminder', 'followup-reminder'] as const).map((type) => (
                 <button

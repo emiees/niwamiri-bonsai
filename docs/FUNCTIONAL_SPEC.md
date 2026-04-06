@@ -138,7 +138,7 @@ Cada usuario comparte la misma URL, instala la PWA, y configura su propia API ke
 
 ### M1 — Onboarding y Configuración Inicial
 
-Pantalla de bienvenida que aparece únicamente la primera vez. Guía al usuario a través de un asistente de 4 pasos.
+Pantalla de bienvenida que aparece únicamente la primera vez que se abre la app. Guía al usuario a través de un asistente de 4 pasos.
 
 #### Flujo del asistente
 
@@ -156,6 +156,15 @@ Pantalla de bienvenida que aparece únicamente la primera vez. Guía al usuario 
 - La API key se guarda cifrada en IndexedDB — nunca en texto plano
 - Si la verificación falla, se muestra el error específico del proveedor
 
+#### Pantalla de bienvenida estacional (por sesión)
+
+Al abrir la app en una sesión nueva (1 vez por sesión, no por día), se muestra una pantalla de bienvenida distinta al onboarding:
+
+- Saludo estacional con nombre del usuario y estación del año actual
+- Lista de cuidados vencidos o pendientes en la colección
+- Aviso de backup si han pasado más de 7 días desde la última exportación
+- Auto-cierre con cuenta regresiva de 10 segundos (o cierre manual)
+
 ---
 
 ### M2 — Inventario de Ejemplares
@@ -168,16 +177,18 @@ Pantalla principal de la app. Muestra la colección completa en grilla de tarjet
 - Alternancia entre vista grilla y vista lista
 - Buscador por nombre o especie
 - Filtro por especie: chips horizontales deslizables con selección múltiple (`Todos · Ficus · Arce · Pino…`). Los chips se generan automáticamente a partir de las especies de la colección
+- Filtro por etiquetas: chips `#tag` que se generan a partir de los tags asignados a los árboles; selección múltiple AND (solo muestra árboles que tengan todos los tags seleccionados)
 - Chips de estación del año actual y alertas pendientes
 - Indicador visual de árboles con cuidados pendientes: círculo naranja sobre la foto (top-left)
-- Botón flotante (+) para agregar nuevo ejemplar
+- FAB (+) expandible: al tocar muestra dos opciones — **Nuevo bonsai** (abre el sheet de alta) e **Identificar con IA** (navega a M10). El ícono rota 45° al expandirse para indicar cierre
 
 #### Datos del ejemplar
 
 | Campo | Tipo | Requerido | Notas |
 |---|---|---|---|
 | Nombre / Apodo | Texto | Sí | Nombre que el usuario le da al árbol |
-| Especie | Texto + autocompletar | Sí | Vincula con Ficha Técnica y Notas |
+| Especie | Texto + autocompletar | Sí | Nombre científico; vincula con Ficha Técnica y Notas |
+| Nombre común | Texto | No | Se muestra como nombre principal en tarjetas y ficha; la especie queda en itálica secundaria |
 | Estilo de Bonsai | Lista | No | Chokkan, Moyogi, Shakan, Kengai, Han-Kengai, Hokidachi, Fukinagashi, Yose-ue, Literati, Otros |
 | Fecha de adquisición | Fecha | No | Cuándo se incorporó a la colección |
 | Año de germinación estimado | Año (número) | No | La app calcula y muestra edad automáticamente con prefijo `~` (ej: `~35 años`) |
@@ -187,6 +198,7 @@ Pantalla principal de la app. Muestra la colección completa en grilla de tarjet
 | Ubicación habitual | Texto | No | Interior, exterior, invernadero, etc. |
 | Estado actual | Lista | Sí | En desarrollo, En mantenimiento, En recuperación, Donado, Muerto |
 | Notas generales | Texto largo | No | Observaciones libres |
+| Etiquetas | Tags libres | No | Chips editables; el usuario escribe sus propias etiquetas para clasificar y filtrar árboles |
 | Foto principal | Imagen | No | Foto de portada del árbol |
 
 ---
@@ -283,7 +295,7 @@ El panel es informativo y no interfiere con el formulario.
 | Vista grilla | Miniaturas en 3 columnas ordenadas por fecha |
 | Vista línea de tiempo | Fotos agrupadas por mes/año |
 | Foto ampliada | Zoom, fecha, descripción del cuidado asociado si corresponde |
-| Nueva foto | Desde cámara del dispositivo o desde galería del sistema |
+| Nueva foto | Desde cámara del dispositivo o desde galería del sistema. Al subir desde galería, se muestra un modal de previsualización con date picker para editar la fecha de la foto antes de guardar (no se asume la fecha actual) |
 | Foto de portada | El usuario puede marcar cualquier foto como principal del árbol |
 | Eliminación | Con confirmación |
 | Compresión | Automática antes de guardar: máximo 1200px en el lado mayor, calidad 85% |
@@ -450,11 +462,11 @@ La app analiza periódicamente la colección considerando: especie y requerimien
 
 #### Flujo
 
-1. El usuario accede desde botón en "crear nuevo ejemplar" o desde el menú
+1. El usuario accede desde el FAB expandible del Inventario (opción "Identificar con IA") o desde la ficha de un árbol
 2. Selecciona una foto desde cámara o galería
 3. La app envía la imagen al modelo de visión del proveedor configurado
 4. La IA devuelve: nombre científico probable, nombre común, nivel de confianza, observaciones
-5. El usuario acepta (pre-rellena el campo especie) o descarta
+5. El usuario acepta o descarta. Al aceptar, navega al Inventario con los campos **especie** y **nombre común** pre-cargados en el sheet de nuevo árbol
 
 #### Consideraciones
 

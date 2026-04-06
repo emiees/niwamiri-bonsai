@@ -9,7 +9,7 @@ import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { useBonsaiStore } from '@/store/bonsaiStore'
 import { storageService } from '@/services/storage/DexieStorageService'
-import { calcAge, formatDate, formatRelative } from '@/utils/dates'
+import { calcAge, formatDate, formatRelative, dateStrToTs, localToday } from '@/utils/dates'
 import { base64ToDataUrl } from '@/utils/images'
 import { exportBonsaiBackup } from '@/utils/backup'
 import type { Bonsai, Care, Photo, ClassNote, SpeciesSheet, BonsaiStatus, BonsaiStyle, BonsaiOrigin, BonsaiSize } from '@/db/schema'
@@ -322,15 +322,20 @@ export default function BonsaiDetail() {
   const [fabOpen, setFabOpen] = useState(false)
 
   const loadData = useCallback(async () => {
-    if (!id) return
-    const [c, p, n] = await Promise.all([
+    if (!id || !bonsai?.species) return
+    const [c, p, specimenNotes, speciesNotes] = await Promise.all([
       storageService.getCaresByBonsai(id),
       storageService.getPhotosByBonsai(id),
       storageService.getNotesBySpecimen(id),
+      storageService.getNotesBySpecies(bonsai.species),
     ])
+    // Unir notas del ejemplar + notas de la especie sin duplicados, ordenado por fecha desc
+    const seen = new Set(specimenNotes.map((n) => n.id))
+    const allNotes = [...specimenNotes, ...speciesNotes.filter((n) => !seen.has(n.id))]
+    allNotes.sort((a, b) => b.classDate - a.classDate)
     setCares(c)
     setPhotos(p)
-    setNotes(n)
+    setNotes(allNotes)
     if (bonsai?.mainPhotoId) {
       const main = p.find((ph) => ph.id === bonsai.mainPhotoId)
       if (main) setMainPhoto(base64ToDataUrl(main.imageData))
@@ -370,7 +375,7 @@ export default function BonsaiDetail() {
 
   async function handleExport() {
     const blob = await exportBonsaiBackup(bonsai!.id)
-    const date = new Date().toISOString().slice(0, 10)
+    const date = localToday()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -485,7 +490,7 @@ export default function BonsaiDetail() {
             [lang === 'es' ? 'Estilo' : 'Style', bonsai.style ? t(`style.${bonsai.style}`).split(' ')[0] : '—'],
             [lang === 'es' ? 'Tamaño' : 'Size', bonsai.size ? t(`size.${bonsai.size}`) : '—'],
             [lang === 'es' ? 'Origen' : 'Origin', bonsai.origin ? t(`origin.${bonsai.origin}`) : '—'],
-            [lang === 'es' ? 'Adquisición' : 'Acquired', bonsai.acquisitionDate ? formatDate(new Date(bonsai.acquisitionDate).getTime()) : '—'],
+            [lang === 'es' ? 'Adquisición' : 'Acquired', bonsai.acquisitionDate ? formatDate(dateStrToTs(bonsai.acquisitionDate)) : '—'],
             [lang === 'es' ? 'Ubicación' : 'Location', bonsai.location ?? '—'],
           ].map(([label, value], i) => (
             <div key={i} className="py-2 pr-2">
