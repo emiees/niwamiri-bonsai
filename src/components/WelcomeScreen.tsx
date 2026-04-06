@@ -120,7 +120,7 @@ export default function WelcomeScreen() {
             className="mx-auto mb-3 h-16 w-16"
           />
           <p className="text-base font-semibold" style={{ color: 'var(--text2)' }}>
-            NiwaMirî <span className="text-xs font-normal" style={{ opacity: 0.6 }}>v1.2</span>
+            NiwaMirî <span className="text-xs font-normal" style={{ opacity: 0.6 }}>v1.3</span>
           </p>
           <p className="text-xl font-bold mt-2" style={{ color: 'var(--text1)' }}>
             {greeting.emoji} {lang === 'es' ? greeting.es : greeting.en}
