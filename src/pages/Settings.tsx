@@ -370,7 +370,7 @@ export default function Settings() {
         {/* ── Acerca de ─────────────────────────────── */}
         <Section title="Acerca de">
           <Row>
-            <RowLabel label="Aplicación" sublabel="NiwaMirî v1.3" />
+            <RowLabel label="Aplicación" sublabel="NiwaMirî v1.4" />
             <a
               href="https://github.com/emiees/niwamiri-bonsai"
               target="_blank"

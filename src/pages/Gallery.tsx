@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Camera, X, Star, Trash2, LayoutGrid, Clock, Check, ChevronLeft, ChevronRight, Pencil, ImagePlus, Plus } from 'lucide-react'
+import { Camera, X, Star, Trash2, LayoutGrid, Clock, Check, ChevronLeft, ChevronRight, Pencil, ImagePlus, Plus, ZoomIn, ZoomOut } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import { useBonsaiStore } from '@/store/bonsaiStore'
@@ -60,6 +60,7 @@ export default function Gallery() {
   const [descInput, setDescInput] = useState('')
   const [editingDate, setEditingDate] = useState(false)
   const [dateInput, setDateInput] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)   // galería
   const cameraInputRef = useRef<HTMLInputElement>(null)  // cámara
@@ -69,6 +70,38 @@ export default function Gallery() {
   // Foto actualmente seleccionada en el lightbox
   const selected = photos.find((p) => p.id === selectedId) ?? null
   const selectedIndex = photos.findIndex((p) => p.id === selectedId)
+
+  // F029: zoom + paneo del lightbox
+  const [zoom, setZoom] = useState(1)
+  const ZOOM_STEP = 0.5
+  const ZOOM_MIN = 1
+  const ZOOM_MAX = 4
+  const [translate, setTranslate] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef<{ startX: number; startY: number; startTx: number; startTy: number } | null>(null)
+
+  function resetView() { setZoom(1); setTranslate({ x: 0, y: 0 }); setConfirmDelete(false) }
+
+  function onPanStart(e: React.PointerEvent) {
+    if (zoom <= 1) return
+    // No iniciar paneo si el toque fue sobre un botón
+    if ((e.target as HTMLElement).closest('button')) return
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startTx: translate.x, startTy: translate.y }
+    setIsDragging(true)
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  function onPanMove(e: React.PointerEvent) {
+    if (!dragRef.current) return
+    const dx = e.clientX - dragRef.current.startX
+    const dy = e.clientY - dragRef.current.startY
+    setTranslate({ x: dragRef.current.startTx + dx, y: dragRef.current.startTy + dy })
+  }
+
+  function onPanEnd() {
+    dragRef.current = null
+    setIsDragging(false)
+  }
 
   async function loadPhotos() {
     if (!bonsaiId) return
@@ -149,6 +182,7 @@ export default function Gallery() {
       setSelectedId(photos[selectedIndex - 1].id)
       setEditingDesc(false)
       setEditingDate(false)
+      resetView()
     }
   }
   function goToNext() {
@@ -156,12 +190,13 @@ export default function Gallery() {
       setSelectedId(photos[selectedIndex + 1].id)
       setEditingDesc(false)
       setEditingDate(false)
+      resetView()
     }
   }
 
   const PhotoThumb = ({ photo }: { photo: Photo }) => (
     <button
-      onClick={() => setSelectedId(photo.id)}
+      onClick={() => { setSelectedId(photo.id); resetView() }}
       className="relative aspect-square overflow-hidden rounded-xl"
       style={{ background: 'var(--bg3)' }}
     >
@@ -398,13 +433,21 @@ export default function Gallery() {
                 <Pencil size={12} color="rgba(255,255,255,0.4)" />
               </button>
             )}
-            <button onClick={() => { setSelectedId(null); setEditingDesc(false); setEditingDate(false) }}>
+            <button onClick={() => { setSelectedId(null); setEditingDesc(false); setEditingDate(false); resetView() }}>
               <X size={22} color="white" />
             </button>
           </div>
 
-          {/* Imagen con flechas de navegación (F016) */}
-          <div className="relative flex flex-1 items-center justify-center px-4">
+          {/* Imagen con flechas de navegación (F016) + zoom + paneo (F029) */}
+          {/* B025: min-h-0 + overflow-hidden evitan que una imagen muy alta empuje los botones fuera del viewport */}
+          <div
+            className="relative flex flex-1 min-h-0 items-center justify-center overflow-hidden px-4"
+            style={{ touchAction: zoom > 1 ? 'none' : 'auto' }}
+            onPointerDown={onPanStart}
+            onPointerMove={onPanMove}
+            onPointerUp={onPanEnd}
+            onPointerCancel={onPanEnd}
+          >
             {selectedIndex > 0 && (
               <button
                 onClick={goToPrev}
@@ -418,6 +461,12 @@ export default function Gallery() {
               src={base64ToDataUrl(selected.imageData)}
               alt=""
               className="max-h-full max-w-full rounded-xl object-contain"
+              style={{
+                transform: `translate(${translate.x}px, ${translate.y}px) scale(${zoom})`,
+                transition: isDragging ? 'none' : 'transform 0.15s ease',
+                transformOrigin: 'center',
+                cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+              }}
             />
             {selectedIndex < photos.length - 1 && (
               <button
@@ -428,6 +477,29 @@ export default function Gallery() {
                 <ChevronRight size={20} color="white" />
               </button>
             )}
+            {/* F029: botones de zoom flotando sobre la imagen */}
+            <div className="absolute bottom-2 right-2 z-10 flex gap-1">
+              <button
+                onClick={() => setZoom((z) => Math.min(ZOOM_MAX, parseFloat((z + ZOOM_STEP).toFixed(1))))}
+                disabled={zoom >= ZOOM_MAX}
+                className="flex h-8 w-8 items-center justify-center rounded-full disabled:opacity-30"
+                style={{ background: 'rgba(0,0,0,0.5)' }}
+              >
+                <ZoomIn size={16} color="white" />
+              </button>
+              <button
+                onClick={() => {
+                  const next = Math.max(ZOOM_MIN, parseFloat((zoom - ZOOM_STEP).toFixed(1)))
+                  setZoom(next)
+                  if (next <= ZOOM_MIN) setTranslate({ x: 0, y: 0 })
+                }}
+                disabled={zoom <= ZOOM_MIN}
+                className="flex h-8 w-8 items-center justify-center rounded-full disabled:opacity-30"
+                style={{ background: 'rgba(0,0,0,0.5)' }}
+              >
+                <ZoomOut size={16} color="white" />
+              </button>
+            </div>
           </div>
 
           {/* Indicador de posición */}
@@ -476,24 +548,50 @@ export default function Gallery() {
             )}
           </div>
 
-          <div className="flex gap-3 px-4 pb-10 pt-2">
-            <button
-              onClick={() => handleSetMain(selected)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
-              style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}
-            >
-              <Star size={16} />
-              {lang === 'es' ? 'Portada' : 'Set cover'}
-            </button>
-            <button
-              onClick={() => handleDelete(selected)}
-              disabled={deleting}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium disabled:opacity-50"
-              style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}
-            >
-              <Trash2 size={16} />
-              {t('common.delete')}
-            </button>
+          {/* B025: barra de acciones fija al fondo — siempre visible independientemente de la altura de la imagen */}
+          <div
+            className="flex shrink-0 gap-3 px-4 pt-2"
+            style={{ paddingBottom: 'max(2.5rem, env(safe-area-inset-bottom))' }}
+          >
+            {confirmDelete ? (
+              <>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}
+                >
+                  {lang === 'es' ? 'Cancelar' : 'Cancel'}
+                </button>
+                <button
+                  onClick={() => handleDelete(selected)}
+                  disabled={deleting}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium disabled:opacity-50"
+                  style={{ background: 'rgba(239,68,68,0.85)', color: 'white' }}
+                >
+                  <Trash2 size={16} />
+                  {lang === 'es' ? '¿Eliminar?' : 'Delete?'}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleSetMain(selected)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}
+                >
+                  <Star size={16} />
+                  {lang === 'es' ? 'Portada' : 'Set cover'}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium"
+                  style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444' }}
+                >
+                  <Trash2 size={16} />
+                  {t('common.delete')}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
