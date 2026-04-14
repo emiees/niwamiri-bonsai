@@ -1,15 +1,16 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LayoutGrid, List, Plus, X, TreePine, Sparkles, BookOpen } from 'lucide-react'
+import { LayoutGrid, List, Plus, X, TreePine, Sparkles, BookOpen, SlidersHorizontal } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import BonsaiCard from '@/components/bonsai/BonsaiCard'
+import { RangeSlider } from '@/components/ui/RangeSlider'
 import { useBonsaiStore } from '@/store/bonsaiStore'
 import { storageService } from '@/services/storage/DexieStorageService'
 import type { BonsaiStatus, BonsaiStyle, BonsaiSize } from '@/db/schema'
 
-// ── Add bonsai sheet ────────────────────────────────────────────
+// ── Tipos y constantes compartidas ──────────────────────────────
 
 const STYLES: BonsaiStyle[] = [
   'chokkan', 'moyogi', 'shakan', 'kengai', 'han-kengai',
@@ -25,6 +26,255 @@ const SIZE_RANGES: Record<BonsaiSize, string> = {
   chuhin: '25–45 cm',
   dai:    '> 45 cm',
 }
+
+const ALL_STATUSES: BonsaiStatus[] = ['developing', 'maintenance', 'recovery', 'donated', 'dead']
+
+// ── Filtros avanzados (F031) ─────────────────────────────────────
+
+type AdvancedFilters = {
+  statuses: BonsaiStatus[]
+  styles: BonsaiStyle[]
+  sizes: BonsaiSize[]
+  ageFrom: string        // Edad del árbol (germinación) — cantidad de años, "desde"
+  ageTo: string          // Edad del árbol (germinación) — cantidad de años, "hasta"
+  antiquityFrom: string  // Antigüedad (adquisición) — cantidad de años, "desde"
+  antiquityTo: string    // Antigüedad (adquisición) — cantidad de años, "hasta"
+}
+
+const EMPTY_ADVANCED_FILTERS: AdvancedFilters = {
+  statuses: [],
+  styles: [],
+  sizes: [],
+  ageFrom: '',
+  ageTo: '',
+  antiquityFrom: '',
+  antiquityTo: '',
+}
+
+function AdvancedFiltersSheet({
+  filters,
+  onChange,
+  onClear,
+  onClose,
+  maxAge,
+  maxAntiquity,
+}: {
+  filters: AdvancedFilters
+  onChange: (f: AdvancedFilters) => void
+  onClear: () => void
+  onClose: () => void
+  maxAge: number        // mayor edad (años) en la colección; 0 = sin datos
+  maxAntiquity: number  // mayor antigüedad (años) en la colección; 0 = sin datos
+}) {
+  const { t, i18n } = useTranslation()
+  const lang = i18n.language.startsWith('en') ? 'en' : 'es'
+  const [local, setLocal] = useState<AdvancedFilters>(filters)
+
+  function toggle<T>(arr: T[], val: T): T[] {
+    return arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]
+  }
+
+  const statusOptions: { value: BonsaiStatus; label: string }[] = ALL_STATUSES.map((s) => ({
+    value: s,
+    label: t(`status.${s}`),
+  }))
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[55] bg-black/50" onClick={onClose} />
+      <div
+        className="fixed bottom-0 left-0 right-0 z-[60] flex flex-col rounded-t-3xl"
+        style={{ background: 'var(--bg)', maxHeight: '85dvh' }}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="h-1 w-10 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pb-3">
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text1)' }}>
+            {lang === 'es' ? 'Filtros avanzados' : 'Advanced filters'}
+          </h2>
+          <button onClick={onClose} className="rounded-full p-1.5" style={{ background: 'var(--bg3)' }}>
+            <X size={16} style={{ color: 'var(--text2)' }} />
+          </button>
+        </div>
+
+        {/* Contenido scrolleable */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 flex flex-col gap-5">
+          {/* Estado */}
+          <div>
+            <label className="mb-2 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
+              {lang === 'es' ? 'Estado' : 'Status'}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {statusOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setLocal((l) => ({ ...l, statuses: toggle(l.statuses, opt.value) }))}
+                  className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium"
+                  style={{
+                    background: local.statuses.includes(opt.value) ? 'var(--color-accent)' : 'var(--card)',
+                    color: local.statuses.includes(opt.value) ? 'var(--green1)' : 'var(--text2)',
+                    border: `1px solid ${local.statuses.includes(opt.value) ? 'var(--color-accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Estilo */}
+          <div>
+            <label className="mb-2 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
+              {lang === 'es' ? 'Estilo' : 'Style'}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {STYLES.map((s) => {
+                const fullLabel = t(`style.${s}`)
+                const parenIdx = fullLabel.indexOf(' (')
+                const jaName = parenIdx !== -1 ? fullLabel.slice(0, parenIdx) : fullLabel
+                const esName = parenIdx !== -1 ? fullLabel.slice(parenIdx + 2, -1) : null
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setLocal((l) => ({ ...l, styles: toggle(l.styles, s) }))}
+                    className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium"
+                    style={{
+                      background: local.styles.includes(s) ? 'var(--color-accent)' : 'var(--card)',
+                      color: local.styles.includes(s) ? 'var(--green1)' : 'var(--text2)',
+                      border: `1px solid ${local.styles.includes(s) ? 'var(--color-accent)' : 'var(--border)'}`,
+                    }}
+                  >
+                    <span className="block">{jaName}</span>
+                    {esName && <span className="block text-[10px] italic opacity-60">{esName}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Tamaño */}
+          <div>
+            <label className="mb-2 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
+              {lang === 'es' ? 'Tamaño' : 'Size'}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {SIZES.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setLocal((l) => ({ ...l, sizes: toggle(l.sizes, s) }))}
+                  className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium"
+                  style={{
+                    background: local.sizes.includes(s) ? 'var(--color-accent)' : 'var(--card)',
+                    color: local.sizes.includes(s) ? 'var(--green1)' : 'var(--text2)',
+                    border: `1px solid ${local.sizes.includes(s) ? 'var(--color-accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  <span className="block">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
+                  <span className="block text-[10px] italic opacity-60">{SIZE_RANGES[s]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Edad del árbol — range slider (solo si hay datos de germinación) */}
+          {maxAge > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
+                {lang === 'es' ? 'Edad del árbol (años)' : 'Tree age (years)'}
+              </label>
+              <p className="mb-3 text-[10px]" style={{ color: 'var(--text3)', opacity: 0.6 }}>
+                {lang === 'es' ? 'Basado en año de germinación estimado' : 'Based on estimated germination year'}
+              </p>
+              <div className="mb-1 flex justify-between">
+                <span className="text-xs font-medium" style={{ color: 'var(--text1)' }}>
+                  {local.ageFrom ? `${local.ageFrom} ${lang === 'es' ? 'años' : 'yrs'}` : (lang === 'es' ? 'Sin límite' : 'No limit')}
+                </span>
+                <span className="text-xs font-medium" style={{ color: 'var(--text1)' }}>
+                  {local.ageTo ? `${local.ageTo} ${lang === 'es' ? 'años' : 'yrs'}` : (lang === 'es' ? 'Sin límite' : 'No limit')}
+                </span>
+              </div>
+              <RangeSlider
+                min={1} max={maxAge}
+                valueMin={parseInt(local.ageFrom) || 1}
+                valueMax={parseInt(local.ageTo) || maxAge}
+                onValueChange={(lo, hi) => setLocal((l) => ({
+                  ...l,
+                  ageFrom: lo <= 1 ? '' : String(lo),
+                  ageTo: hi >= maxAge ? '' : String(hi),
+                }))}
+              />
+              <div className="mt-1 flex justify-between">
+                <span className="text-[10px]" style={{ color: 'var(--text3)' }}>1 {lang === 'es' ? 'año' : 'yr'}</span>
+                <span className="text-[10px]" style={{ color: 'var(--text3)' }}>{maxAge} {lang === 'es' ? 'años' : 'yrs'}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Antigüedad — range slider (solo si hay datos de adquisición) */}
+          {maxAntiquity > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
+                {lang === 'es' ? 'Antigüedad (años)' : 'Time owned (years)'}
+              </label>
+              <p className="mb-3 text-[10px]" style={{ color: 'var(--text3)', opacity: 0.6 }}>
+                {lang === 'es' ? 'Basado en fecha de adquisición' : 'Based on acquisition date'}
+              </p>
+              <div className="mb-1 flex justify-between">
+                <span className="text-xs font-medium" style={{ color: 'var(--text1)' }}>
+                  {local.antiquityFrom ? `${local.antiquityFrom} ${lang === 'es' ? 'años' : 'yrs'}` : (lang === 'es' ? 'Sin límite' : 'No limit')}
+                </span>
+                <span className="text-xs font-medium" style={{ color: 'var(--text1)' }}>
+                  {local.antiquityTo ? `${local.antiquityTo} ${lang === 'es' ? 'años' : 'yrs'}` : (lang === 'es' ? 'Sin límite' : 'No limit')}
+                </span>
+              </div>
+              <RangeSlider
+                min={1} max={maxAntiquity}
+                valueMin={parseInt(local.antiquityFrom) || 1}
+                valueMax={parseInt(local.antiquityTo) || maxAntiquity}
+                onValueChange={(lo, hi) => setLocal((l) => ({
+                  ...l,
+                  antiquityFrom: lo <= 1 ? '' : String(lo),
+                  antiquityTo: hi >= maxAntiquity ? '' : String(hi),
+                }))}
+              />
+              <div className="mt-1 flex justify-between">
+                <span className="text-[10px]" style={{ color: 'var(--text3)' }}>1 {lang === 'es' ? 'año' : 'yr'}</span>
+                <span className="text-[10px]" style={{ color: 'var(--text3)' }}>{maxAntiquity} {lang === 'es' ? 'años' : 'yrs'}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div
+          className="shrink-0 flex gap-3 px-5 pt-2"
+          style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+        >
+          <button
+            onClick={() => { onClear(); onClose() }}
+            className="flex-1 rounded-2xl py-3 text-sm font-medium"
+            style={{ background: 'var(--bg3)', color: 'var(--text2)' }}
+          >
+            {lang === 'es' ? 'Limpiar' : 'Clear'}
+          </button>
+          <button
+            onClick={() => { onChange(local); onClose() }}
+            className="flex-1 rounded-2xl py-3 text-sm font-medium"
+            style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
+          >
+            {lang === 'es' ? 'Aplicar' : 'Apply'}
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Add bonsai sheet ────────────────────────────────────────────
 
 function AddBonsaiSheet({
   existingSpecies,
@@ -350,6 +600,8 @@ export default function Inventory() {
   const [search, setSearch] = useState('')
   const [selectedSpecies, setSelectedSpecies] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(EMPTY_ADVANCED_FILTERS)
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [showAdd, setShowAdd] = useState(false)
   const [fabOpen, setFabOpen] = useState(false)
@@ -386,27 +638,84 @@ export default function Inventory() {
     [bonsais],
   )
 
+  // F031: valores máximos para sliders de edad y antigüedad
+  const maxAge = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    const ages = bonsais.filter((b) => b.germinationYear).map((b) => currentYear - b.germinationYear!)
+    return ages.length > 0 ? Math.max(...ages) : 0
+  }, [bonsais])
+
+  const maxAntiquity = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    const vals = bonsais.filter((b) => b.acquisitionDate).map((b) => currentYear - parseInt(b.acquisitionDate!.slice(0, 4)))
+    return vals.length > 0 ? Math.max(...vals) : 0
+  }, [bonsais])
+
+  // F030: mapa especie → nombre común (para mostrar en chips de filtro rápido)
+  const speciesDisplayMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const b of bonsais) {
+      if (!map[b.species]) map[b.species] = b.commonName || b.species
+    }
+    return map
+  }, [bonsais])
+
   const tagOptions = useMemo(
     () => [...new Set(bonsais.flatMap((b) => b.tags ?? []))].sort(),
     [bonsais],
   )
 
+  // F031: cantidad de grupos de filtros avanzados activos (para el badge)
+  const activeAdvancedCount =
+    (advancedFilters.statuses.length > 0 ? 1 : 0) +
+    (advancedFilters.styles.length > 0 ? 1 : 0) +
+    (advancedFilters.sizes.length > 0 ? 1 : 0) +
+    (advancedFilters.ageFrom || advancedFilters.ageTo ? 1 : 0) +
+    (advancedFilters.antiquityFrom || advancedFilters.antiquityTo ? 1 : 0)
+
+  function clearAdvancedFilters() {
+    setAdvancedFilters(EMPTY_ADVANCED_FILTERS)
+  }
+
   const filtered = useMemo(() => {
+    // 1. Filtros avanzados — definen el subconjunto base
     let list = bonsais
+    if (advancedFilters.statuses.length > 0)
+      list = list.filter((b) => advancedFilters.statuses.includes(b.status))
+    if (advancedFilters.styles.length > 0)
+      list = list.filter((b) => b.style !== undefined && advancedFilters.styles.includes(b.style))
+    if (advancedFilters.sizes.length > 0)
+      list = list.filter((b) => b.size !== undefined && advancedFilters.sizes.includes(b.size))
+    // Edad del árbol: edad = currentYear - germinationYear
+    const currentYear = new Date().getFullYear()
+    if (advancedFilters.ageFrom)
+      list = list.filter((b) => b.germinationYear !== undefined && (currentYear - b.germinationYear) >= parseInt(advancedFilters.ageFrom))
+    if (advancedFilters.ageTo)
+      list = list.filter((b) => b.germinationYear !== undefined && (currentYear - b.germinationYear) <= parseInt(advancedFilters.ageTo))
+    // Antigüedad: años transcurridos desde la adquisición
+    if (advancedFilters.antiquityFrom)
+      list = list.filter((b) => b.acquisitionDate !== undefined && (currentYear - parseInt(b.acquisitionDate.slice(0, 4))) >= parseInt(advancedFilters.antiquityFrom))
+    if (advancedFilters.antiquityTo)
+      list = list.filter((b) => b.acquisitionDate !== undefined && (currentYear - parseInt(b.acquisitionDate.slice(0, 4))) <= parseInt(advancedFilters.antiquityTo))
+
+    // 2. Búsqueda de texto — sobre el subconjunto avanzado
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(
         (b) => b.name.toLowerCase().includes(q) || b.species.toLowerCase().includes(q),
       )
     }
-    if (selectedSpecies.length > 0) {
+
+    // 3. Filtros rápidos de especie — sobre el resultado anterior
+    if (selectedSpecies.length > 0)
       list = list.filter((b) => selectedSpecies.includes(b.species))
-    }
-    if (selectedTags.length > 0) {
+
+    // 4. Filtros rápidos de etiquetas — sobre el resultado anterior
+    if (selectedTags.length > 0)
       list = list.filter((b) => selectedTags.every((tag) => b.tags?.includes(tag)))
-    }
+
     return list
-  }, [bonsais, search, selectedSpecies, selectedTags])
+  }, [bonsais, search, selectedSpecies, selectedTags, advancedFilters])
 
   return (
     <AppShell showNav>
@@ -436,16 +745,36 @@ export default function Inventory() {
         }
       />
 
-      {/* Search */}
-      <div className="px-4 pt-3">
+      {/* Search + botón filtros avanzados (F031) */}
+      <div className="flex items-center gap-2 px-4 pt-3">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('common.search')}
-          className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="flex-1 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           style={{ background: 'var(--card)', color: 'var(--text1)', border: '1px solid var(--border)' }}
         />
+        <button
+          onClick={activeAdvancedCount > 0 ? clearAdvancedFilters : () => setShowAdvancedFilters(true)}
+          className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+          style={{
+            background: activeAdvancedCount > 0 ? 'var(--color-accent)' : 'var(--card)',
+            color: activeAdvancedCount > 0 ? 'var(--green1)' : 'var(--text2)',
+            border: '1px solid var(--border)',
+          }}
+          aria-label={activeAdvancedCount > 0 ? (lang === 'es' ? 'Limpiar filtros' : 'Clear filters') : (lang === 'es' ? 'Filtros avanzados' : 'Advanced filters')}
+        >
+          {activeAdvancedCount > 0 ? <X size={18} /> : <SlidersHorizontal size={18} />}
+          {activeAdvancedCount > 0 && (
+            <span
+              className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold"
+              style={{ background: 'var(--text1)', color: 'var(--bg)' }}
+            >
+              {activeAdvancedCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Fila 1: filtros por especie */}
@@ -477,7 +806,7 @@ export default function Inventory() {
                 border: `1px solid ${selectedSpecies.includes(sp) ? 'var(--color-accent)' : 'var(--border)'}`,
               }}
             >
-              {sp}
+              {speciesDisplayMap[sp] ?? sp}
             </button>
           ))}
         </div>
@@ -607,6 +936,18 @@ export default function Inventory() {
             setPrefill(undefined)
             navigate(`/bonsai/${id}`)
           }}
+        />
+      )}
+
+      {/* F031: Panel de filtros avanzados */}
+      {showAdvancedFilters && (
+        <AdvancedFiltersSheet
+          filters={advancedFilters}
+          onChange={setAdvancedFilters}
+          onClear={clearAdvancedFilters}
+          onClose={() => setShowAdvancedFilters(false)}
+          maxAge={maxAge}
+          maxAntiquity={maxAntiquity}
         />
       )}
     </AppShell>
