@@ -10,7 +10,8 @@ import type {
   CalendarEvent,
   AppConfig,
 } from '../../db/schema'
-import type { StorageService } from './StorageService'
+import { CareValidationError, type BulkCareRequest, type StorageService } from './StorageService'
+import { CARE_TYPES, normalizeDetails, validateDetails } from '../../utils/careDetails'
 
 const DEFAULT_CONFIG: AppConfig = {
   id: 1,
@@ -76,8 +77,119 @@ export class DexieStorageService implements StorageService {
     return id
   }
 
+  async getCareProducts(): Promise<string[]> {
+    const cares = await this.db.cares.toArray()
+    return [...new Set(cares.flatMap((care) => [care.specificFields?.product, care.specificFields?.sealant])
+      .filter((value): value is string => typeof value === 'string' && !!value.trim()))].sort((a, b) => a.localeCompare(b))
+  }
+
+  async saveBulkCares(request: BulkCareRequest): Promise<string[]> {
+    const db = this.db
+    return db.transaction('rw', [db.bonsais, db.cares, db.events], async () => {
+      if (!CARE_TYPES.includes(request.type) || !Number.isFinite(request.date)
+        || !request.recipients.length || validateDetails(request.type, request.specificFields ?? {}).length
+        || (request.followUpReminder && (!Number.isFinite(request.followUpReminder.date) || !request.followUpReminder.description.trim()))) {
+        throw new CareValidationError('invalid-data')
+      }
+      const recipients = [...new Map(request.recipients.map((row) => [row.bonsaiId, row])).values()]
+      const trees = await db.bonsais.bulkGet(recipients.map((row) => row.bonsaiId))
+      for (const [index, row] of recipients.entries()) {
+        if (!trees[index]) throw new CareValidationError('missing-tree', row.bonsaiId)
+        if (!['good', 'regular', 'problematic'].includes(row.treeCondition)) throw new CareValidationError('invalid-data', row.bonsaiId)
+      }
+      const ids: string[] = []
+      for (const [index, row] of recipients.entries()) {
+        const id = await this.saveCare({ ...row, type: request.type, date: request.date,
+          specificFields: normalizeDetails(request.type, request.specificFields ?? {}),
+          followUpReminder: request.followUpReminder })
+        await this.saveEvent({ bonsaiId: row.bonsaiId, careId: id, careType: request.type,
+          type: 'care', title: `${request.typeLabel} — ${trees[index]!.name}`, date: request.date, completed: true })
+        if (request.followUpReminder) await this.saveEvent({ bonsaiId: row.bonsaiId, careId: id,
+          careType: request.type, type: 'followup-reminder', title: request.followUpReminder.description,
+          date: request.followUpReminder.date, completed: false })
+        ids.push(id)
+      }
+      return ids
+    })
+  }
+
+  private async getCareEvents(care: Care): Promise<CalendarEvent[]> {
+    const events = await this.getEventsByBonsai(care.bonsaiId)
+    const linked = events.filter((event) => event.careId === care.id)
+    const reminder = care.followUpReminder
+    if (!reminder) return linked
+
+    // Los recordatorios antiguos no tenían careId. Solo asociarlos si hay un
+    // único cuidado que coincida; nunca borrar por tipo de cuidado solamente.
+    const owners = await this.db.cares.where('bonsaiId').equals(care.bonsaiId).filter(
+      (candidate) => candidate.type === care.type
+        && candidate.followUpReminder?.date === reminder.date
+        && candidate.followUpReminder.description === reminder.description
+    ).count()
+    if (owners === 1) {
+      linked.push(...events.filter((event) => !event.careId
+        && event.type === 'followup-reminder'
+        && event.careType === care.type
+        && event.date === reminder.date
+        && event.title === reminder.description))
+    }
+    return linked
+  }
+
+  async updateCare(
+    id: string,
+    data: Partial<Omit<Care, 'id' | 'bonsaiId' | 'createdAt'>>,
+    eventTitle: string
+  ): Promise<void> {
+    const db = this.db
+    await db.transaction('rw', [db.cares, db.events], async () => {
+      const previous = await db.cares.get(id)
+      if (!previous) throw new Error('Care not found')
+      const events = await this.getCareEvents(previous)
+      const care = { ...previous, ...data, id, bonsaiId: previous.bonsaiId, createdAt: previous.createdAt }
+      await db.cares.put(care)
+
+      const eventData = {
+        bonsaiId: care.bonsaiId, careId: id, careType: care.type,
+        title: eventTitle, date: care.date,
+      }
+      const careEvents = events.filter((event) => event.type === 'care')
+      if (careEvents.length) {
+        for (const event of careEvents) await this.updateEvent(event.id, eventData)
+      } else {
+        await this.saveEvent({ ...eventData, type: 'care', completed: true })
+      }
+
+      const pendingReminders = events.filter((event) => event.type === 'followup-reminder' && !event.completed)
+      if (care.followUpReminder) {
+        const reminderData = {
+          bonsaiId: care.bonsaiId, careId: id, careType: care.type,
+          title: care.followUpReminder.description, date: care.followUpReminder.date,
+        }
+        if (pendingReminders.length) {
+          await this.updateEvent(pendingReminders[0].id, reminderData)
+          for (const duplicate of pendingReminders.slice(1)) await this.deleteEvent(duplicate.id)
+        } else {
+          await this.saveEvent({ ...reminderData, type: 'followup-reminder', completed: false })
+        }
+      } else {
+        for (const reminder of pendingReminders) await this.deleteEvent(reminder.id)
+      }
+    })
+  }
+
   async deleteCare(id: string): Promise<void> {
-    await this.db.cares.delete(id)
+    const db = this.db
+    await db.transaction('rw', [db.cares, db.events, db.photos, db.classNotes], async () => {
+      const care = await db.cares.get(id)
+      if (!care) return
+      const events = await this.getCareEvents(care)
+      await db.events.bulkDelete(events.map((event) => event.id))
+      // Conservar las fotos y notas del árbol, quitando solo el vínculo al cuidado.
+      await db.photos.where('careId').equals(id).modify((photo) => { delete photo.careId })
+      await db.classNotes.where('careId').equals(id).modify((note) => { delete note.careId })
+      await db.cares.delete(id)
+    })
   }
 
   // ── Photos ───────────────────────────────────────────────────

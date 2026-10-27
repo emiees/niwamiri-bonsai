@@ -745,6 +745,8 @@ export default function Inventory() {
         }
       />
 
+      {location.state?.careSuccess && <p role="status" className="px-4 pt-3 text-sm" style={{ color: 'var(--color-accent)' }}>{t('bulkCare.success', { count: location.state.careSuccess })}</p>}
+
       {/* Search + botón filtros avanzados (F031) */}
       <div className="flex items-center gap-2 px-4 pt-3">
         <input
@@ -895,6 +897,7 @@ export default function Inventory() {
       )}
       {fabOpen && (
         <div className="fixed bottom-40 right-4 z-30 flex flex-col items-end gap-2">
+          <button onClick={() => { setFabOpen(false); navigate('/cares/bulk') }} className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-lg" style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text1)' }}><TreePine size={16} style={{ color: 'var(--color-accent)' }} />{t('bulkCare.title')}</button>
           <button
             onClick={() => { setFabOpen(false); navigate('/identify') }}
             className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-lg"

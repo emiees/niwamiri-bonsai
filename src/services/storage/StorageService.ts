@@ -7,7 +7,28 @@ import type {
   SpeciesSheet,
   CalendarEvent,
   AppConfig,
+  CareType,
+  TreeCondition,
 } from '../../db/schema'
+
+export interface BulkCareRequest {
+  type: CareType
+  date: number
+  specificFields?: Record<string, unknown>
+  followUpReminder?: Care['followUpReminder']
+  typeLabel: string
+  recipients: { bonsaiId: string; treeCondition: TreeCondition; description?: string }[]
+}
+
+export class CareValidationError extends Error {
+  code: 'missing-tree' | 'invalid-data'
+  target: string
+  constructor(code: 'missing-tree' | 'invalid-data', target = '') {
+    super(code)
+    this.code = code
+    this.target = target
+  }
+}
 
 export interface StorageService {
   // Bonsais
@@ -20,6 +41,9 @@ export interface StorageService {
   // Cares
   getCaresByBonsai(bonsaiId: string): Promise<Care[]>
   saveCare(care: Omit<Care, 'id' | 'createdAt'>): Promise<string>
+  saveBulkCares(request: BulkCareRequest): Promise<string[]>
+  getCareProducts(): Promise<string[]>
+  updateCare(id: string, data: Partial<Omit<Care, 'id' | 'bonsaiId' | 'createdAt'>>, eventTitle: string): Promise<void>
   deleteCare(id: string): Promise<void>
 
   // Photos

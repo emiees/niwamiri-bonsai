@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Camera, X, Sparkles, Loader2, ChevronDown, ChevronUp, ImagePlus } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
@@ -11,40 +11,15 @@ import { useSeason } from '@/hooks/useSeason'
 import { createAIService } from '@/hooks/useAI'
 import { compressImage, base64ToDataUrl, extractExifDatetime } from '@/utils/images'
 import type { CareType, TreeCondition, Care } from '@/db/schema'
-
-const CARE_TYPES: CareType[] = [
-  'watering', 'fertilizing', 'maintenance-pruning', 'structural-pruning',
-  'wiring', 'wire-removal', 'repotting', 'root-pruning',
-  'defoliation', 'pest-treatment', 'jin-shari', 'relocation',
-  'observation', 'other',
-]
-
-const CARE_ICONS: Record<CareType, string> = {
-  watering: '💧', fertilizing: '🌿', 'maintenance-pruning': '✂️',
-  'structural-pruning': '🌳', wiring: '🔗', 'wire-removal': '📎',
-  repotting: '🪴', 'root-pruning': '🌱', defoliation: '🍃',
-  'pest-treatment': '🐛', 'jin-shari': '🪵', relocation: '📍',
-  observation: '👁️', other: '📝',
-}
-
-const CONDITIONS: TreeCondition[] = ['good', 'regular', 'problematic']
-const CONDITION_COLORS: Record<TreeCondition, string> = {
-  good: '#22c55e',
-  regular: '#f59e0b',
-  problematic: '#f97316',
-}
-
-function dateToInputValue(ts: number): string {
-  const d = new Date(ts)
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
+import { CareDetailsFields, CareTypeDateFields, ConditionFields } from '@/components/care/CareFields'
+import { isValidDay, normalizeDetails, validateDetails, type DetailDraft } from '@/utils/careDetails'
+import { dateStrToTs, tsToDateStr, localToday } from '@/utils/dates'
 
 export default function CareForm() {
   const { id: bonsaiId, careId } = useParams<{ id: string; careId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromCareList = location.state?.fromCareList === true
   const { t, i18n } = useTranslation()
   const lang = i18n.language.startsWith('en') ? 'en' : 'es'
   const isEdit = !!careId
@@ -55,13 +30,20 @@ export default function CareForm() {
   const season = useSeason()
 
   const [type, setType] = useState<CareType>('watering')
-  const [date, setDate] = useState(dateToInputValue(Date.now()))
+  const [date, setDate] = useState(() => localToday())
   const [condition, setCondition] = useState<TreeCondition>('good')
   const [description, setDescription] = useState('')
   const [photos, setPhotos] = useState<{ b64: string; takenAt: number }[]>([])
   const [reminderDate, setReminderDate] = useState('')
   const [reminderDesc, setReminderDesc] = useState('')
+  const [details, setDetails] = useState<DetailDraft>({})
+  const [detailErrors, setDetailErrors] = useState<string[]>([])
+  const [products, setProducts] = useState<string[]>([])
+  const [validationError, setValidationError] = useState(false)
+  const saveLock = useRef(false)
   const [saving, setSaving] = useState(false)
+  const [loadedCareId, setLoadedCareId] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState(false)
   const [suggestingReminder, setSuggestingReminder] = useState(false)
   const [aiNotes, setAiNotes] = useState('')
   const [aiNotesLoading, setAiNotesLoading] = useState(false)
@@ -70,25 +52,38 @@ export default function CareForm() {
   const cameraInputRef = useRef<HTMLInputElement>(null)  // cámara
 
   useEffect(() => {
+    let active = true
+    storageService.getCareProducts().then((items) => { if (active) setProducts(items) }).catch(() => {})
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
     if (!bonsais.length) fetchBonsais()
   }, [fetchBonsais, bonsais.length])
 
   useEffect(() => {
+    let active = true
     if (isEdit && careId) {
       storageService.getCaresByBonsai(bonsaiId!).then((cares) => {
+        if (!active) return
         const existing = cares.find((c) => c.id === careId)
         if (existing) {
           setType(existing.type)
-          setDate(dateToInputValue(existing.date))
+          setDetails(existing.specificFields ?? {})
+          setDate(tsToDateStr(existing.date))
           setCondition(existing.treeCondition)
           setDescription(existing.description ?? '')
           if (existing.followUpReminder) {
-            setReminderDate(dateToInputValue(existing.followUpReminder.date))
+            setReminderDate(tsToDateStr(existing.followUpReminder.date))
             setReminderDesc(existing.followUpReminder.description)
           }
+          setLoadedCareId(existing.id)
+        } else {
+          setSaveError(true)
         }
-      })
+      }).catch(() => { if (active) setSaveError(true) })
     }
+    return () => { active = false }
   }, [isEdit, careId, bonsaiId])
 
   const loadAiNotes = useCallback(async () => {
@@ -118,13 +113,13 @@ export default function CareForm() {
       const svc = await createAIService(config.encryptedApiKey, config.aiProvider, config.aiModel)
       const tempCare: Care = {
         id: 'temp', bonsaiId: bonsaiId!, type,
-        date: new Date(date + 'T12:00:00').getTime(), treeCondition: condition,
+        date: dateStrToTs(date), treeCondition: condition,
         description, createdAt: Date.now(),
       }
       const result = await svc.suggestReminder(tempCare, {
         bonsai, recentCares: recentCares.slice(0, 5), classNotes: [], season,
       })
-      setReminderDate(dateToInputValue(result.date))
+      setReminderDate(tsToDateStr(result.date))
       setReminderDesc(result.description)
     } catch { /* silent */ }
     finally { setSuggestingReminder(false) }
@@ -149,28 +144,30 @@ export default function CareForm() {
   }
 
   async function handleSave() {
-    if (!bonsaiId) return
+    if (!bonsaiId || saveLock.current || (isEdit && loadedCareId !== careId)) return
+    const errors = validateDetails(type, details)
+    setDetailErrors(errors)
+    const invalid = errors.length > 0 || !isValidDay(date) || (!!reminderDate !== !!reminderDesc.trim()) || (!!reminderDate && !isValidDay(reminderDate))
+    setValidationError(invalid)
+    if (invalid) return
+    saveLock.current = true
     setSaving(true)
+    setSaveError(false)
     try {
       const careData = {
         bonsaiId, type,
-        date: new Date(date + 'T12:00:00').getTime(),
+        specificFields: normalizeDetails(type, details),
+        date: dateStrToTs(date),
         treeCondition: condition,
         description: description.trim() || undefined,
         followUpReminder: reminderDate && reminderDesc
-          ? { date: new Date(reminderDate + 'T12:00:00').getTime(), description: reminderDesc }
+          ? { date: dateStrToTs(reminderDate), description: reminderDesc }
           : undefined,
       }
-      if (isEdit && careId) {
-        // Al editar, eliminar el recordatorio anterior no completado para evitar duplicados
-        const existingEvents = await storageService.getEventsByBonsai(bonsaiId)
-        const oldReminder = existingEvents.find(
-          (e) => e.type === 'followup-reminder' && !e.completed && e.careType === type
-        )
-        if (oldReminder) await storageService.deleteEvent(oldReminder.id)
-        await storageService.deleteCare(careId)
-      }
-      const savedCareId = await storageService.saveCare(careData)
+      const eventTitle = `${t(`care.${type}`)} — ${bonsai?.name ?? ''}`
+      // Editar conserva el ID, las fotos y los eventos del cuidado original.
+      const savedCareId = careId ?? await storageService.saveCare(careData)
+      if (careId) await storageService.updateCare(careId, careData, eventTitle)
 
       for (const photo of photos) {
         await storageService.savePhoto({
@@ -182,20 +179,28 @@ export default function CareForm() {
       if (!isEdit) {
         await storageService.saveEvent({
           bonsaiId, type: 'care', careType: type, careId: savedCareId,
-          title: `${t(`care.${type}`)} — ${bonsai?.name ?? ''}`,
-          date: new Date(date + 'T12:00:00').getTime(), completed: true,
+          title: eventTitle,
+          date: dateStrToTs(date), completed: true,
         })
       }
 
-      if (reminderDate && reminderDesc) {
+      if (!isEdit && reminderDate && reminderDesc) {
         await storageService.saveEvent({
-          bonsaiId, type: 'followup-reminder', careType: type,
-          title: reminderDesc, date: new Date(reminderDate + 'T12:00:00').getTime(), completed: false,
+          bonsaiId, type: 'followup-reminder', careType: type, careId: savedCareId,
+          title: reminderDesc, date: dateStrToTs(reminderDate), completed: false,
         })
       }
 
-      navigate(`/bonsai/${bonsaiId}`, { replace: true })
-    } catch { setSaving(false) }
+      if (fromCareList) {
+        try { if (location.state?.careListKey) sessionStorage.setItem(location.state.careListKey, 'updated') } catch { /* almacenamiento de sesión no disponible */ }
+        navigate(-1)
+      }
+      else navigate(`/bonsai/${bonsaiId}`, { replace: true })
+    } catch {
+      setSaveError(true)
+      setSaving(false)
+      saveLock.current = false
+    }
   }
 
   return (
@@ -206,7 +211,7 @@ export default function CareForm() {
         actions={
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || (isEdit && loadedCareId !== careId)}
             className="rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
             style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
           >
@@ -216,85 +221,17 @@ export default function CareForm() {
       />
 
       <div className="flex flex-col gap-4 px-4 py-3">
+        {saveError && <p role="alert" className="error-text text-sm" style={{ color: 'var(--color-warn)' }}>{t('careList.saveError')}</p>}
         {bonsai && (
           <p className="text-sm" style={{ color: 'var(--text3)' }}>
             <em>{bonsai.name}</em> · {bonsai.species}
           </p>
         )}
 
-        {/* Type */}
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text3)' }}>
-            {t('careForm.type')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {CARE_TYPES.map((ct) => (
-              <button
-                key={ct}
-                onClick={() => setType(ct)}
-                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium"
-                style={{
-                  background: type === ct ? 'var(--color-accent)' : 'var(--card)',
-                  color: type === ct ? 'var(--green1)' : 'var(--text2)',
-                  border: `1px solid ${type === ct ? 'var(--color-accent)' : 'var(--border)'}`,
-                }}
-              >
-                <span>{CARE_ICONS[ct]}</span>
-                {t(`care.${ct}`)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Date */}
-        <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text3)' }}>
-            {t('careForm.date')}
-          </p>
-          <input
-            type="date" value={date} onChange={(e) => setDate(e.target.value)}
-            className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            style={{ background: 'var(--card)', color: 'var(--text1)', border: '1px solid var(--border)' }}
-          />
-        </div>
-
-        {/* Condition */}
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text3)' }}>
-            {t('careForm.condition')}
-          </p>
-          <div className="flex gap-3">
-            {CONDITIONS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCondition(c)}
-                className="flex-1 rounded-xl py-2.5 text-xs font-semibold"
-                style={{
-                  background: condition === c ? CONDITION_COLORS[c] + '33' : 'var(--card)',
-                  color: condition === c ? CONDITION_COLORS[c] : 'var(--text2)',
-                  border: `2px solid ${condition === c ? CONDITION_COLORS[c] : 'var(--border)'}`,
-                }}
-              >
-                {t(`condition.${c}`)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Description */}
-        <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text3)' }}>
-            {t('careForm.description')}
-          </p>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            placeholder={lang === 'es' ? 'Observaciones, notas, detalles...' : 'Observations, notes, details...'}
-            className="w-full resize-none rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            style={{ background: 'var(--card)', color: 'var(--text1)', border: '1px solid var(--border)' }}
-          />
-        </div>
+        <CareTypeDateFields type={type} date={date} onDate={setDate} hasDetails={Object.keys(details).length > 0} onType={(next) => { setType(next); setDetails({}); setDetailErrors([]) }} />
+        <CareDetailsFields type={type} value={details} onChange={setDetails} products={products} errors={detailErrors} />
+        <ConditionFields condition={condition} description={description} onCondition={setCondition} onDescription={setDescription} />
+        {validationError && <p role="alert" className="text-sm" style={{ color: 'var(--color-warn)' }}>{t('careDetails.validationError')}</p>}
 
         {/* Photos */}
         <div>
@@ -341,6 +278,7 @@ export default function CareForm() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text3)' }}>
               {t('careForm.reminder')}
             </p>
+            {type === 'wiring' && typeof details.reviewDate === 'string' && details.reviewDate && <button type="button" onClick={() => { setReminderDate(String(details.reviewDate)); setReminderDesc(t('careDetails.reviewReminder')) }} className="mb-2 text-sm" style={{ color: 'var(--color-accent)' }}>{t('careDetails.useReviewDate')}</button>}
             <div className="flex gap-2">
               <input
                 type="date" value={reminderDate} onChange={(e) => setReminderDate(e.target.value)}
