@@ -111,7 +111,7 @@ export interface CalendarEvent {
   bonsaiId?: string // ref → Bonsai.id (opcional para eventos globales)
   type: 'care' | 'manual-reminder' | 'followup-reminder' | 'ai-suggestion'
   careType?: CareType
-  careId?: string // ref → Care.id (solo para type === 'care')
+  careId?: string // ref → Care.id (cuidado o recordatorio de seguimiento vinculado)
   title: string
   description?: string
   date: number // timestamp

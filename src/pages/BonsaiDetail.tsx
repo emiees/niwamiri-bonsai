@@ -12,6 +12,7 @@ import { storageService } from '@/services/storage/DexieStorageService'
 import { calcAge, formatDate, formatRelative, dateStrToTs, localToday } from '@/utils/dates'
 import { base64ToDataUrl } from '@/utils/images'
 import { exportBonsaiBackup } from '@/utils/backup'
+import { detailSummary } from '@/utils/careDetails'
 import type { Bonsai, Care, Photo, ClassNote, SpeciesSheet, BonsaiStatus, BonsaiStyle, BonsaiOrigin, BonsaiSize } from '@/db/schema'
 
 // ── Collapsible section ─────────────────────────────────────────
@@ -533,6 +534,7 @@ export default function BonsaiDetail() {
                 <div>
                   <p className="text-sm font-medium" style={{ color: 'var(--text1)' }}>{t(`care.${care.type}`)}</p>
                   <p className="text-xs" style={{ color: 'var(--text3)' }}>{formatRelative(care.date)}</p>
+                  {detailSummary(care, t) && <p className="mt-1 line-clamp-2 text-xs" style={{ color: 'var(--text3)' }}>{detailSummary(care, t)}</p>}
                 </div>
                 <span
                   className="text-xs font-medium"
@@ -542,17 +544,15 @@ export default function BonsaiDetail() {
                 </span>
               </button>
             ))}
-            {cares.length > 5 && (
-              <button
-                onClick={() => navigate(`/bonsai/${id}/care`)}
-                className="flex w-full items-center justify-center py-3 text-sm font-medium"
-                style={{ color: 'var(--color-accent)' }}
-              >
-                {lang === 'es' ? `Ver todos (${cares.length})` : `See all (${cares.length})`}
-              </button>
-            )}
           </>
         )}
+        <button
+          onClick={() => navigate(`/bonsai/${id}/cares`)}
+          className="flex w-full items-center justify-center py-3 text-sm font-medium"
+          style={{ color: 'var(--color-accent)', borderTop: '1px solid var(--border)' }}
+        >
+          {cares.length ? t('careList.viewAll', { count: cares.length }) : t('careList.viewList')}
+        </button>
       </Section>
 
       {/* ── Galería ── */}

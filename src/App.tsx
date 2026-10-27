@@ -7,6 +7,8 @@ import Onboarding from './pages/Onboarding'
 import Inventory from './pages/Inventory'
 import BonsaiDetail from './pages/BonsaiDetail'
 import CareForm from './pages/CareForm'
+import CareList from './pages/CareList'
+import BulkCareForm from './pages/BulkCareForm'
 import Gallery from './pages/Gallery'
 import ClassNotes from './pages/ClassNotes'
 import SpeciesSheet from './pages/SpeciesSheet'
@@ -45,6 +47,7 @@ export default function App() {
         <Route path="/onboarding" element={<Onboarding />} />
 
         {/* Protected routes */}
+        <Route path="/cares/bulk" element={<OnboardingGuard><BulkCareForm /></OnboardingGuard>} />
         <Route
           path="/"
           element={
@@ -58,6 +61,14 @@ export default function App() {
           element={
             <OnboardingGuard>
               <BonsaiDetail />
+            </OnboardingGuard>
+          }
+        />
+        <Route
+          path="/bonsai/:id/cares"
+          element={
+            <OnboardingGuard>
+              <CareList />
             </OnboardingGuard>
           }
         />
