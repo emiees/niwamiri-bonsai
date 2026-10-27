@@ -1,14 +1,26 @@
 # NiwaMirî — Especificación Funcional
 
-> **Versión:** 1.0 — Primera emisión  
-> **Tipo de aplicación:** Progressive Web App (PWA)  
-> **Plataformas:** Android · iOS (instalable en pantalla de inicio)  
-> **Idiomas:** Español / Inglés (bilingüe)  
-> **Almacenamiento inicial:** Local — IndexedDB en el dispositivo  
-> **Almacenamiento futuro:** Compatible con migración a Supabase / Firebase  
-> **Proveedor de IA:** Configurable — Gemini, OpenAI, Claude (Anthropic)  
+> **Aplicación de referencia:** 1.5.0 — Revisión documental: 2026-10-27
+>
+> **Tipo de aplicación:** Progressive Web App (PWA)
+>
+> **Plataformas:** Android · iOS (instalable en pantalla de inicio)
+>
+> **Idiomas:** Español / Inglés (bilingüe)
+>
+> **Almacenamiento inicial:** Local — IndexedDB en el dispositivo
+>
+> **Almacenamiento futuro:** Supabase como alternativa prevista, sin implementación actual
+>
+> **Proveedor de IA:** Configurable — Gemini, OpenAI, Claude (Anthropic)
 
 ---
+
+Este documento conserva requisitos del diseño inicial y los contrasta con la implementación 1.5.0. Los apartados marcados **previsto** no describen funciones disponibles ni comprometen una nueva entrega. Las diferencias se documentan para orientar el mantenimiento; no se eliminan requisitos para dar por resuelto un bug.
+
+**Cambios incluidos en v1.5.0:** B026 (historial completo) y F033–F035 (carga masiva, filtros y detalles por tipo) están incluidos en v1.5.0 y `en revisión`, pendientes de validación del usuario.
+
+El procedimiento de trabajo está en [DEVELOPMENT.md](DEVELOPMENT.md), la arquitectura vigente en [SPEC.md](SPEC.md) y el estado de validación de los cambios en [BACKLOG.md](BACKLOG.md). Tener un módulo implementado no implica que todos sus requisitos originales estén completos o confirmados por el usuario.
 
 ## Índice
 
@@ -46,8 +58,8 @@ NiwaMirî nace para centralizar todo ese conocimiento en una app mobile-first, s
 - Identificación de especie por fotografía mediante visión por IA
 - Notas de clases por especie con resúmenes inteligentes contextuales
 - Consultas libres a IA en el contexto de cada ejemplar
-- Calendario de cuidados con recordatorios y sugerencias automáticas por IA
-- Ficha técnica por especie generada por IA o desde base de datos local
+- Calendario de cuidados con recordatorios manuales y propuestas de seguimiento por IA a pedido del usuario
+- Ficha técnica por especie generada por IA o creada manualmente; catálogo precargado previsto
 - Onboarding guiado para configuración de API key de IA
 - Backup y restauración de datos en formato portable
 - Interfaz bilingüe (español / inglés)
@@ -69,14 +81,14 @@ NiwaMirî nace para centralizar todo ese conocimiento en una app mobile-first, s
 NiwaMirî es una Progressive Web App (PWA). Funciona como un sitio web avanzado que puede instalarse en la pantalla de inicio del teléfono y comportarse como una app nativa. No requiere publicación en App Store ni Play Store.
 
 - ✅ Sin servidores propios — toda la lógica corre en el dispositivo del usuario
-- ✅ Funciona offline — los datos se almacenan localmente en el teléfono
+- ✅ Gestión local offline tras la carga inicial; las operaciones de IA requieren conexión
 - ✅ Instalable en Android e iOS desde el navegador
-- ✅ Compatible con Chrome 90+ en Android y Safari 16.4+ en iOS
+- Compatibilidad objetivo del diseño: Chrome 90+ en Android y Safari 16.4+ en iOS; requiere validación con el build y los dispositivos usados
 - ✅ Diseñada para migración futura a almacenamiento en la nube (Supabase)
 
 ### 2.2 Principio de capa de abstracción de datos
 
-La interfaz de usuario nunca accede directamente a la base de datos. Todo pasa por un servicio intermedio (`StorageService`) que puede intercambiar su implementación interna sin afectar el resto de la aplicación. Esto garantiza la migración futura a la nube con cambios mínimos.
+El objetivo arquitectónico es que la UI acceda mediante `StorageService`. La implementación actual tiene accesos directos heredados para conversaciones y contadores, además de las utilidades de backup. Las excepciones están detalladas en [SPEC.md](SPEC.md); una migración a la nube requeriría tratarlas y completar el contrato de almacenamiento.
 
 ```
 [ UI / Componentes ]
@@ -89,7 +101,7 @@ La interfaz de usuario nunca accede directamente a la base de datos. Todo pasa p
 | Capa | Responsabilidad | Tecnología inicial | Tecnología futura |
 |---|---|---|---|
 | UI / Componentes | Pantallas e interacción | React | Sin cambios |
-| StorageService | Abstracción de datos | Interfaz TS | Sin cambios |
+| StorageService | Abstracción de datos | Interfaz TS y métodos adicionales en la implementación | Completar contrato y cubrir excepciones |
 | Implementación local | Persistencia en dispositivo | Dexie.js / IndexedDB | Reemplazable |
 | Implementación nube | Sincronización multi-dispositivo | — | Supabase / Firebase |
 
@@ -97,17 +109,21 @@ La interfaz de usuario nunca accede directamente a la base de datos. Todo pasa p
 
 Todas las funciones de IA pasan por un `AIService` que delega en el proveedor configurado por el usuario. Agregar un nuevo proveedor en el futuro no requiere modificar ninguna pantalla.
 
-| Proveedor | Modelos sugeridos | Tier gratuito | Visión |
-|---|---|---|---|
-| Google Gemini | gemini-1.5-flash / gemini-1.5-pro | Sí — recomendado | Sí |
-| OpenAI | gpt-4o / gpt-4o-mini | No | Sí |
-| Anthropic Claude | claude-3-5-haiku / claude-3-5-sonnet | No | Sí |
+| Proveedor | Configuración en la aplicación | Visión |
+|---|---|---|
+| Google Gemini | API key y modelo del usuario | Sí |
+| OpenAI | API key y modelo del usuario | Sí |
+| Anthropic Claude | API key y modelo del usuario | Sí |
+
+Las opciones de modelos y sus defaults se consultan en Configuración, onboarding y proveedores del código. Las listas iniciales incluían modelos antiguos; su disponibilidad, cuotas y costos deben comprobarse con el proveedor cuando se cambie la integración. No se presupone que un plan gratuito siga vigente.
+
+---
 
 ### 2.4 Distribución de la aplicación
 
 La app se distribuye como archivos estáticos:
-- GitHub Pages — gratuito, ideal para uso personal y grupal
-- Netlify / Vercel — gratuitos, con deploy automático desde repositorio
+- GitHub Pages — publicación configurada desde `main` mediante GitHub Actions
+- Netlify / Vercel — alternativas de hosting estático, sin configuración de despliegue en este repositorio
 
 Cada usuario comparte la misma URL, instala la PWA, y configura su propia API key. Los datos de cada usuario son estrictamente locales a su dispositivo.
 
@@ -125,7 +141,7 @@ Cada usuario comparte la misma URL, instala la PWA, y configura su propia API ke
 | M6 | Notas de Clases | Notas asociadas a especie + ejemplar + cuidado |
 | M7 | Ficha Técnica de Especie | Información técnica editable, generada por IA o manual |
 | M8 | Asistente IA por Ejemplar | Chat contextual con historial del árbol |
-| M9 | Calendario y Recordatorios | Calendario con filtros combinables y sugerencias IA |
+| M9 | Calendario y Recordatorios | Calendario, recordatorios y edición de eventos |
 | M10 | Identificación por Foto | Identificación de especie mediante IA de visión |
 | M11 | Backup y Restauración | Export/import de todos los datos |
 | M12 | Configuración Global | Idioma, proveedor IA, API key, preferencias |
@@ -160,10 +176,10 @@ Pantalla de bienvenida que aparece únicamente la primera vez que se abre la app
 
 Al abrir la app en una sesión nueva (1 vez por sesión, no por día), se muestra una pantalla de bienvenida distinta al onboarding:
 
-- Saludo estacional con nombre del usuario y estación del año actual
-- Lista de cuidados vencidos o pendientes en la colección
-- Aviso de backup si han pasado más de 7 días desde la última exportación
-- Auto-cierre con cuenta regresiva de 10 segundos (o cierre manual)
+- Logo, versión, saludo y emoji de la estación actual
+- Contador de eventos pendientes hasta el momento actual, con acceso al Calendario
+- Aviso de backup si hay árboles y nunca se exportó, o si hay más de tres registros nuevos de cuidados/fotos/notas de clase desde el último backup
+- Auto-cierre a los 10 segundos, suspendido cuando hay alerta de backup; también permite cierre manual
 
 ---
 
@@ -176,9 +192,10 @@ Pantalla principal de la app. Muestra la colección completa en grilla de tarjet
 - Listado en grilla con foto arriba y datos abajo (nombre, especie en itálica, edad calculada, último cuidado)
 - Alternancia entre vista grilla y vista lista
 - Buscador por nombre o especie
-- Filtro por especie: chips horizontales deslizables con selección múltiple (`Todos · Ficus · Arce · Pino…`). Los chips se generan automáticamente a partir de las especies de la colección
+- Filtro por especie: chips horizontales con selección múltiple, generados de la colección. Muestran el nombre común si existe y filtran por la especie almacenada
 - Filtro por etiquetas: chips `#tag` que se generan a partir de los tags asignados a los árboles; selección múltiple AND (solo muestra árboles que tengan todos los tags seleccionados)
-- Chips de estación del año actual y alertas pendientes
+- Panel avanzado con estado, estilo, tamaño, rango de edad y antigüedad de adquisición. Se combina con búsqueda y filtros rápidos; el badge cuenta grupos de filtros avanzados activos
+- Estación y chip de pendientes en el header compartido. El chip considera vencidos y próximos siete días
 - Indicador visual de árboles con cuidados pendientes: círculo naranja sobre la foto (top-left)
 - FAB (+) expandible: al tocar muestra dos opciones — **Nuevo bonsai** (abre el sheet de alta) e **Identificar con IA** (navega a M10). El ícono rota 45° al expandirse para indicar cierre
 
@@ -193,7 +210,7 @@ Pantalla principal de la app. Muestra la colección completa en grilla de tarjet
 | Fecha de adquisición | Fecha | No | Cuándo se incorporó a la colección |
 | Año de germinación estimado | Año (número) | No | La app calcula y muestra edad automáticamente con prefijo `~` (ej: `~35 años`) |
 | Origen | Lista | No | Prebonsai, Yamadori, Semilla, Esqueje, Regalo, Compra |
-| Tamaño / Categoría | Lista | No | Mame (<15cm), Shohin (15-25cm), Chuhin (25-46cm), Dai (>46cm) |
+| Tamaño / Categoría | Lista | No | Shito (<5 cm), Mame (5–15 cm), Shohin (15–25 cm), Chuhin (25–45 cm), Dai (>45 cm) |
 | Maceta / Sustrato | Texto | No | Descripción libre |
 | Ubicación habitual | Texto | No | Interior, exterior, invernadero, etc. |
 | Estado actual | Lista | Sí | En desarrollo, En mantenimiento, En recuperación, Donado, Muerto |
@@ -205,7 +222,7 @@ Pantalla principal de la app. Muestra la colección completa en grilla de tarjet
 
 ### M3 — Ficha del Ejemplar
 
-Vista detallada de un árbol. Navegación mediante scroll vertical con secciones colapsables. FAB (+) para registrar nuevo cuidado sin salir de la ficha.
+Vista detallada de un árbol, con seis secciones colapsables. El FAB (+) ofrece accesos a registrar cuidado, agregar nota de clase y agregar foto. También permite exportar un backup del ejemplar.
 
 #### Secciones
 
@@ -214,7 +231,7 @@ Vista detallada de un árbol. Navegación mediante scroll vertical con secciones
 | Hero photo | Foto principal + edad calculada + estado del árbol |
 | Stats rápidos | Cantidad de cuidados, fotos, notas, días desde último cuidado |
 | 📋 Resumen | Datos principales del árbol en grilla de dos columnas + notas generales |
-| ✂️ Cuidados | Últimas entradas del historial con link a ver todos |
+| ✂️ Cuidados | Hasta cinco cuidados recientes; «Ver todos» abre el listado completo con búsqueda, edición y eliminación |
 | 📷 Galería | Grilla de miniaturas con contador de fotos restantes |
 | 📝 Notas de Clase | Notas de especie y del ejemplar con tag de vínculo |
 | 📖 Ficha Técnica | Información de la especie con badge de origen |
@@ -233,28 +250,15 @@ Vista detallada de un árbol. Navegación mediante scroll vertical con secciones
 
 Módulo central de la aplicación. Formulario con panel IA contextual integrado.
 
+**Estado:** B026 y F033–F035 están incluidos en v1.5.0 y `en revisión`. El usuario aprobó el diseño de F033–F035 el 2026-10-27; la aprobación del diseño no reemplaza la validación de la aplicación.
+
 #### Tipos de cuidados soportados
 
-| Tipo | Campos específicos adicionales |
-|---|---|
-| Riego | Cantidad de agua, método (inmersión / aspersor / regadera), observaciones sobre drenaje |
-| Fertilización | Producto utilizado, dosis, método, tipo NPK predominante |
-| Poda de mantenimiento | Ramas podadas, objetivo, herramientas |
-| Poda estructural | Ramas principales modificadas, cambios en estructura, fotos antes/después |
-| Alambrado | Calibre del alambre, ramas alambradas, fecha estimada de retiro |
-| Retiro de alambre | Referencia al alambrado original, resultado |
-| Trasplante / Repotting | Maceta nueva, sustrato utilizado, raíces podadas (%), estado de raíces |
-| Poda de raíces | Porcentaje podado, estado observado, sustrato renovado |
-| Defoliación | Parcial o total, objetivo, fecha esperada de rebrote |
-| Tratamiento fitosanitario | Plaga o enfermedad tratada, producto, dosis, método, seguimiento |
-| Jin / Shari (deadwood) | Tipo de técnica, zona intervenida, productos aplicados |
-| Exposición / Cambio de ubicación | Ubicación anterior y nueva, motivo |
-| Observación general | Registro libre sin intervención |
-| Otro | Descripción libre |
+Están disponibles 14 tipos: Riego, Fertilización, Poda de mantenimiento, Poda estructural, Alambrado, Retiro de alambre, Trasplante, Poda de raíces, Defoliación, Tratamiento fitosanitario, Jin / Shari, Reubicación, Observación y Otro. Los formularios individual y masivo comparten campos comunes y detalles especializados opcionales, definidos en F035, más abajo.
 
 #### Campos comunes a todos los tipos
 
-- Fecha y hora del cuidado
+- Fecha del cuidado (selector de día; el timestamp se ancla a mediodía local)
 - Tipo de cuidado (selector chips)
 - Descripción / observaciones (texto libre)
 - Fotos adjuntas (0 a N, desde cámara o galería)
@@ -272,19 +276,202 @@ Al tocar "Sugerir con IA", se envía al modelo el tipo de cuidado, especie y est
 
 #### Panel contextual de IA
 
-Al abrir el formulario se muestra automáticamente un panel expandible con:
-- Resumen de notas de clase relevantes, priorizando las vinculadas al ejemplar específico sobre las genéricas de la especie
-- Últimas intervenciones del mismo tipo en ese árbol
-- Recomendación contextual según estación del año actual
+Al expandir el panel, y si hay clave configurada, se solicita un resumen de las notas de clase de la especie y del ejemplar, unidas sin duplicados y con las del ejemplar primero. No bloquea el formulario.
 
-El panel es informativo y no interfiere con el formulario.
+**Previsto:** incorporar al resumen intervenciones del mismo tipo, contexto estacional adicional y notas de bitácora por etiqueta. La sugerencia de recordatorio ya usa contexto de árbol, cuidados recientes y estación.
 
 #### Historial de cuidados
 
-- Vista cronológica descendente
-- Filtros: por tipo, rango de fechas, presencia de fotos
-- Buscador de texto en observaciones
-- Cada entrada muestra: tipo, fecha, resumen, foto miniatura si tiene
+La ficha del árbol muestra hasta cinco cuidados recientes. «Ver todos» abre una pantalla completa con el mismo patrón visual de Notas de clase; el acceso también está disponible si hay cinco cuidados o menos (sin registros se muestra «Ver cuidados»).
+
+- Listado completo en orden cronológico descendente, sin límite de cinco.
+- Búsqueda por tipo de cuidado, observaciones y condición del árbol, con estado vacío y mensaje sin resultados.
+- Cada tarjeta muestra tipo, fecha, condición y observaciones, y ofrece editar y eliminar.
+- Editar abre el formulario existente; guardar vuelve al listado actualizado. Se conservan ID, fecha de creación y vínculos con fotos y notas, y se actualiza el calendario.
+- Eliminar requiere confirmación. Quita el cuidado y sus eventos vinculados; conserva las fotos en la galería, la portada y las notas del árbol, retirando sus referencias al cuidado eliminado.
+- Botón «+» para un nuevo cuidado; al guardar vuelve al listado.
+- Los recordatorios nuevos incluyen el ID del cuidado. Los antiguos sin ID se asocian por tipo, fecha y descripción solo si hay un único cuidado coincidente; si la relación es ambigua se conservan para no borrar seguimientos de otros cuidados.
+
+**Previsto:** las miniaturas de cada entrada se mantienen como mejora posterior. Los filtros implementados se detallan en F034, más abajo.
+
+#### Alcance de la ampliación en v1.5.0
+
+Registrar una misma intervención en varios árboles sin repetir el formulario, consultar después qué se hizo y conservar detalles como producto, dosis o calibre del alambre.
+
+| Ítem | Funcionalidad | Estado de producto |
+|---|---|---|
+| F033 | Registrar cuidados en varios árboles | Implementado, en revisión |
+| F034 | Filtros del historial de cuidados | Implementado, en revisión |
+| F035 | Características específicas por tipo | Implementado para los 14 tipos, en revisión |
+
+**Decisión del usuario:** en una carga masiva se puede asignar el mismo estado y observaciones a todos los árboles o elegirlos por árbol. El diseño completo fue aprobado antes de implementar.
+
+Se mantienen los 14 tipos de cuidado actuales. Esta ampliación no reactiva F023, que fue descartado y trataba de tipos nuevos agrupados en subcategorías.
+
+#### F033 — Cuidados masivos (implementado, en revisión)
+
+##### Entrada y navegación
+
+Desde el FAB expandible de **Colección**, «Registrar cuidados» abre un flujo de tres pasos, manteniendo el header con volver y los patrones visuales actuales:
+
+```text
+Seleccionar árboles → Completar cuidado → Revisar y guardar
+```
+
+El «+» del historial de un árbol conserva el registro individual. Ambos modos comparten campos, validaciones y presentación de los detalles de cada tipo.
+
+##### Paso 1: seleccionar árboles
+
+- Mostrar nombre, especie/nombre común y foto o ícono de cada ejemplar, con selección múltiple explícita.
+- Buscar por nombre o especie y filtrar por especie y etiquetas, con los mismos criterios del Inventario.
+- Mostrar inicialmente árboles en desarrollo, mantenimiento o recuperación. Una opción permite incluir donados o muertos para registrar intervenciones históricas.
+- «Seleccionar visibles» afecta solo los resultados mostrados por la búsqueda/filtros. «Quitar selección» limpia la selección completa.
+- Cambiar filtros no elimina los árboles seleccionados que queden ocultos. Mantener visible el contador y un acceso a la selección completa.
+- Permitir continuar con al menos un árbol; no obligar a seleccionar dos si el usuario termina trabajando con uno.
+
+##### Paso 2: completar el cuidado
+
+Datos comunes de la carga:
+
+| Dato | Regla |
+|---|---|
+| Tipo de cuidado | Uno para toda la carga |
+| Fecha | Una fecha local, precargada con hoy y editable |
+| Detalles del tipo | Mismo producto, dosis, método, calibres u otros detalles para todos |
+| Estado y observaciones | Modo «Iguales para todos» o «Por árbol», según lo elegido |
+| Seguimiento | Recordatorio manual común opcional; si se usa, cada cuidado tendrá su evento vinculado |
+
+El estado registrado es la condición del árbol en el cuidado (Bien/Regular/Problemático), no el estado del inventario (En desarrollo/Mantenimiento/etc.). No modificar automáticamente el estado del inventario.
+
+###### Estado y observaciones iguales para todos
+
+Mostrar una condición y un texto de observaciones. Aplicarlos a todos los seleccionados. La condición requiere una elección explícita en el modo masivo; no asumir que todos están «Bien».
+
+###### Estado y observaciones por árbol
+
+- Mostrar tarjetas o filas expandibles con nombre del árbol, condición y resumen de observaciones.
+- Ofrecer valores comunes y «Aplicar a todos» para completar rápidamente la carga; luego permitir ajustar cada excepción.
+- Cada árbol necesita una condición. Sus observaciones son opcionales y pueden quedar vacías.
+- Al pasar del modo común al individual, iniciar los registros con los valores comunes ya ingresados.
+- Si se vuelve al modo común y hay diferencias, confirmar antes de reemplazar los ajustes individuales. Mantenerlos mientras no se confirme.
+- Conservar el trabajo al plegar una tarjeta, cambiar de paso o ajustar la selección. Un árbol agregado más tarde toma los valores comunes disponibles y queda pendiente si aún no tiene condición.
+
+En el primer alcance, las fotos se agregan después desde cada árbol/cuidado; no se duplican adjuntos en todos los ejemplares. La carga masiva usa seguimiento manual y no dispara consultas de IA por cada árbol.
+
+##### Paso 3: revisar y guardar
+
+Mostrar tipo, fecha, detalles comunes, cantidad de árboles y listado de destinatarios. En modo individual, cada fila resume también su condición y observaciones y permite volver a corregirlas.
+
+La acción final indica el alcance: **«Guardar en N árboles»**. Hasta ese momento no se escriben registros. Al completar, informar cuántos cuidados se registraron y volver a Colección.
+
+##### Resultado y reglas de guardado
+
+- Crear un cuidado independiente por árbol, cada uno con ID propio y su evento de calendario; agregar seguimiento vinculado si se solicitó.
+- Los registros aparecen en cada historial, en sus contadores y en Calendario igual que un cuidado individual.
+- Editar o eliminar después afecta solo al cuidado elegido. La primera versión no ofrece edición ni eliminación conjunta de una carga ya guardada.
+- Guardar cuidados y eventos de toda la selección en una única transacción. Si algo falla, no conservar una carga parcial y mantener el borrador para reintentar.
+- Quitar IDs repetidos de la selección y bloquear doble envío mientras se guarda. No prohibir intervenciones legítimas con el mismo tipo y fecha.
+- Volver a validar que existan los destinatarios y los datos requeridos al guardar. Un error identifica qué hay que corregir antes de escribir.
+- No crear una tabla de lotes ni un catálogo de productos para este primer alcance: cada cuidado conserva una copia de sus datos.
+
+#### F034 — Filtros del historial (implementado, en revisión)
+
+Aplicar en la pantalla **Cuidados de un árbol**, sobre el historial completo y junto al buscador que ya existe. Mantener el patrón del Inventario: botón de filtros, sheet inferior, badge, chips activos removibles y acción de limpieza.
+
+| Filtro | Control y comportamiento |
+|---|---|
+| Tipo de cuidado | Chips de selección múltiple; sin selección equivale a todos |
+| Fecha | Todo el historial, últimos 7/30/90 días o rango personalizado |
+| Fotos | Todos / Con fotos / Sin fotos |
+
+- Combinar grupos con AND; los tipos seleccionados se combinan con OR.
+- Un rango incluye completos el día inicial y el final, en horario local. Permitir límites abiertos; rechazar un inicio posterior al final.
+- Los períodos rápidos incluyen hoy. Calcular por días de calendario locales, sin conversiones UTC ni asumir que todos los días duran 24 horas.
+- «Con fotos» usa fotos vinculadas al cuidado, no cualquier foto de la galería del árbol.
+- La búsqueda combina los filtros y contempla tipo, condición, observaciones y los detalles guardados (por ejemplo producto o calibre).
+- Mostrar «X de Y cuidados», conservando orden del más reciente al más antiguo.
+- «Limpiar filtros» restablece los filtros y conserva el texto de búsqueda; la búsqueda tiene su propia limpieza.
+- Diferenciar historial vacío de búsqueda/filtros sin coincidencias. Ofrecer limpiar filtros en el segundo caso.
+- Conservar búsqueda y filtros al abrir un cuidado, guardar cambios y volver. Si el registro deja de cumplir el filtro, desaparece de ese resultado y se informa que fue actualizado.
+- Eliminar actualiza resultados y contadores conservando los filtros; no ofrece operaciones sobre todos los resultados.
+
+Los filtros por producto específico o por origen masivo pueden evaluarse después. El buscador permite localizar productos sin agregar un catálogo ni más controles.
+
+#### F035 — Detalles por tipo de cuidado (implementado, en revisión)
+
+##### Presentación y captura
+
+La sección **«Detalles del cuidado»** se muestra debajo de tipo y fecha, con campos que cambian según el tipo seleccionado. Los controles usan el mismo diseño del formulario actual: chips para opciones breves, selectores cuando hay muchas opciones e inputs con unidad para cantidades.
+
+Los detalles son opcionales para conservar el registro rápido y permitir datos antiguos incompletos. Si se completa una cantidad/dosis, exigir su unidad; los números deben ser válidos y no negativos (dosis y calibres, mayores que cero). Aceptar coma decimal del teclado en español. Los porcentajes se limitan a 0–100.
+
+La sección se utiliza tanto en cuidados individuales como masivos. En el historial, cada tarjeta muestra un resumen compacto de los detalles; al editar se recuperan todos.
+
+##### Catálogo de los 14 tipos
+
+| Tipo actual | Características implementadas | Controles principales |
+|---|---|---|
+| Riego | Método, volumen aplicado por árbol, drenaje observado | Método: regadera/inmersión/aspersión/otro; número + ml/L; texto opcional |
+| Fertilización | Producto, presentación, dosis y unidad, método, NPK opcional, cantidad aplicada por árbol opcional | Producto con autocompletado; sólido/líquido/otro; dosis numérica + unidad; método; NPK como texto de etiqueta |
+| Poda de mantenimiento | Zona trabajada, objetivo, intensidad, herramienta opcional | Texto de zona/objetivo; ligera/media/fuerte; texto de herramienta |
+| Poda estructural | Ramas o zonas intervenidas, cambio buscado, intensidad, sellador utilizado si corresponde | Textos; intensidad; producto opcional |
+| Alambrado | Material, uno o varios calibres en mm, zona trabajada y fecha prevista de revisión/retiro | Aluminio/cobre/otro; lista repetible de calibre + zona; fecha opcional |
+| Retiro de alambre | Zona, material/calibres retirados, tiempo aproximado colocado y resultado observado | Textos, calibres numéricos, duración + unidad |
+| Trasplante | Maceta anterior/nueva, sustrato utilizado, porcentaje estimado de raíces retiradas, estado de las raíces | Textos; porcentaje; observaciones de raíces |
+| Poda de raíces | Porcentaje estimado retirado, zona trabajada, estado observado, sustrato renovado y herramienta opcional | Porcentaje y textos |
+| Defoliación | Parcial/total, zona trabajada, porcentaje estimado si fue parcial, objetivo y fecha esperada de rebrote | Selector, texto, porcentaje condicional, texto y fecha opcional |
+| Tratamiento de plagas | Plaga/enfermedad observada, producto, dosis y unidad, método de aplicación | Textos y producto con autocompletado; dosis + unidad; método |
+| Jin / Shari | Técnica, zona intervenida y producto aplicado si corresponde | Jin/shari/ambos; texto de zona; producto opcional |
+| Reubicación | Ubicación anterior/nueva, motivo, condiciones de luz si se quieren registrar | Textos; selector de luz con opción «Otro» |
+| Observación | Zona observada y síntoma/evolución a seguir | Textos opcionales, manteniendo las observaciones comunes |
+| Otro | Nombre de la intervención y detalles libres | Texto opcional, sin crear un tipo nuevo automáticamente |
+
+Los controles registran lo realizado; no calculan ni recomiendan dosis o calibres. En fertilización/tratamientos, unidades iniciales como ml/L, g/L, ml/árbol y g/árbol distinguen concentración de cantidad aplicada. El campo de unidad ofrece sugerencias y permite escribir cualquier otra unidad. La cantidad aplicada por árbol es un dato separado de la dosis de preparación; no multiplicar ni convertir automáticamente.
+
+En Alambrado, se admite más de un calibre porque un mismo cuidado puede intervenir varias zonas. Los valores son ingresados por el usuario, sin limitarse a un listado fijo de medidas.
+
+La fecha de revisión/retiro reutiliza el recordatorio de seguimiento existente si el usuario decide crearlo; no genera un segundo recordatorio oculto. Vincular automáticamente el retiro a un alambrado anterior, o guardar fotos clasificadas «antes/después», continúa como mejora futura del diseño original.
+
+##### Productos reutilizables sin administrar un catálogo
+
+- Escribir un nombre nuevo o elegir uno usado anteriormente en cuidados de la colección.
+- Conservar el nombre escrito como dato histórico del cuidado. No modificar registros anteriores si se usa otro nombre más tarde.
+- No guardar ni aplicar automáticamente una dosis anterior al elegir el producto. La dosis se introduce para esta intervención.
+- No incorporar inventario, existencias, precios ni gestión de insumos en esta etapa.
+
+##### Cambios de tipo y compatibilidad
+
+- Al editar un cuidado antiguo sin detalles, mostrar campos vacíos y conservar el resto del registro y sus vínculos.
+- Si se cambia el tipo con detalles ya cargados, explicar que al guardar se reemplazarán por los correspondientes al nuevo tipo. Conservar el borrador anterior mientras se decide o se cancela.
+- No guardar detalles del tipo anterior como si pertenecieran al nuevo.
+- Mantener campos desconocidos de un backup cuando el tipo no cambie, aunque esta versión no pueda editarlos.
+- Registrar una reubicación no cambia automáticamente la ubicación habitual del inventario.
+
+#### Entregas y verificación
+
+Se implementaron las cuatro etapas del diseño aprobado:
+
+1. Base compartida de detalles y campos de **fertilización y alambrado** (primer tramo de F035).
+2. Carga masiva con ambos modos de estado/observaciones (F033).
+3. Filtros del historial (F034; puede implementarse independientemente).
+4. Completar el catálogo de los demás tipos (resto de F035).
+
+F035 incluye los 14 tipos acordados. F033, F034 y F035 quedan `en revisión` hasta la confirmación del usuario.
+
+##### Pruebas de código
+
+- Selección de uno/muchos árboles, sin repetidos; persistencia al cambiar filtros y pasos.
+- Estados y observaciones comunes e individuales; herencia de valores comunes, nuevas selecciones y cambio de modo con diferencias.
+- Un cuidado/evento/seguimiento por destinatario; rollback de toda la carga ante un error y protección contra doble envío.
+- Edición/eliminación individual posterior sin modificar los demás árboles ni perder fotos/notas.
+- Combinación de búsqueda y filtros, límites de fechas locales, rangos inválidos y relación real de fotos por cuidado.
+- Validación de detalles, unidades y decimales; más de un calibre; detalles visibles y recuperables al editar.
+- Backups con y sin detalles, y conservación de datos desconocidos compatibles.
+- Tests unitarios/integración, TypeScript, lint y build; sin navegador, automatización de la app ni pruebas manuales del agente.
+
+Las pruebas de código cubren selección y borradores, ambos modos, guardado transaccional y rollback, edición, filtros y compatibilidad de backups. Las pruebas usando la aplicación las realiza el usuario durante el estado `en revisión`.
+
+Las decisiones técnicas para estas funcionalidades se documentan en [SPEC.md](SPEC.md#cuidados-masivos-filtros-y-detalles-f033f035).
 
 ---
 
@@ -294,11 +481,11 @@ El panel es informativo y no interfiere con el formulario.
 |---|---|
 | Vista grilla | Miniaturas en 3 columnas ordenadas por fecha |
 | Vista línea de tiempo | Fotos agrupadas por mes/año |
-| Foto ampliada | Zoom, fecha, descripción del cuidado asociado si corresponde |
-| Nueva foto | Desde cámara del dispositivo o desde galería del sistema. Al subir desde galería, se muestra un modal de previsualización con date picker para editar la fecha de la foto antes de guardar (no se asume la fecha actual) |
+| Foto ampliada | Lightbox con zoom 1×–4× por botones, paneo, flechas entre fotos, contador y edición de descripción y fecha/hora |
+| Nueva foto | Inputs separados de cámara y galería, selección múltiple con cola de previsualización. Se precarga fecha/hora EXIF; sin EXIF se usa el día actual a mediodía local. Permite ajustar la fecha antes de guardar |
 | Foto de portada | El usuario puede marcar cualquier foto como principal del árbol |
-| Eliminación | Con confirmación |
-| Compresión | Automática antes de guardar: máximo 1200px en el lado mayor, calidad 85% |
+| Eliminación | Confirmación en dos pasos; se cancela al cerrar o cambiar de foto. Acciones ancladas al pie del lightbox |
+| Compresión | Automática antes de guardar: máximo habitual 1200 px y calidad según configuración (alta 85%, media 75%, baja 60%) |
 
 ---
 
@@ -319,23 +506,23 @@ Cada nota tiene **especie como ancla obligatoria** más vínculos opcionales:
 #### Funcionalidades
 
 - Cada nota tiene: especie (obligatorio), fecha de la clase, título opcional, texto libre
-- Vínculos opcionales a ejemplar y/o cuidado desde el formulario
+- Al crear desde un árbol se guarda su vínculo a ejemplar; al editar se conserva el original. **Previsto:** selector de vínculos opcionales a ejemplar/cuidado desde el formulario
 - Vista de lista por especie ordenada por fecha
-- Filtros: por especie, por ejemplar, por tipo de cuidado relacionado
+- La vista del árbol une notas de su especie y del ejemplar sin duplicados. **Previsto:** filtros independientes por especie, ejemplar y tipo de cuidado
 - Buscador de texto dentro de las notas
 - Edición y eliminación
 
 #### Creación desde el formulario de cuidado (M4)
 
-Desde M4 se puede crear una nota directamente sin salir del flujo. Se pre-vincula automáticamente a la especie del árbol, el ejemplar y el cuidado en curso.
+**Previsto:** crear una nota desde M4 y vincularla automáticamente al cuidado en curso. Actualmente las notas se crean desde la ficha del árbol o su sección Notas de Clase y se vinculan a especie/ejemplar; no hay creación inline desde CareForm.
 
 #### Integración con IA — Resumen contextual
 
 Al registrar un cuidado, el sistema:
 1. Recupera todas las notas asociadas a la especie
-2. Prioriza las que además estén vinculadas al ejemplar específico o a cuidados del mismo tipo
-3. Envía al modelo de IA: notas priorizadas + tipo de cuidado + especie + ejemplar
-4. La IA devuelve un resumen con mayor peso en las notas del ejemplar específico
+2. Une sin duplicados las notas de especie y ejemplar, colocando primero las del ejemplar. La priorización por cuidado relacionado sigue prevista
+3. Envía al modelo de IA las notas priorizadas, tipo de cuidado y especie mediante `summarizeNotesForCare`
+4. La IA devuelve un resumen relevante para el tipo de cuidado; el prompt actual no etiqueta explícitamente el alcance de cada nota
 5. El resumen se muestra en el panel contextual del formulario de cuidado
 
 ---
@@ -346,14 +533,16 @@ Al registrar un cuidado, el sistema:
 
 | Fuente | Cuándo se usa |
 |---|---|
-| Base de datos local | Especies más comunes (Ficus, Olmo, Arce, Junípero, Pino, Azalea, Portulacaria, etc.) |
-| Generación por IA | Cualquier especie no incluida en la base local. Bajo demanda, se cachea localmente. |
+| Base de datos local | **Previsto:** catálogo precargado de especies; el tipo `local-db` existe pero los seeds actuales no cargan fichas |
+| Generación por IA | Bajo demanda para la especie del árbol, con clave configurada; se guarda localmente. |
 | Creación manual | Especies muy exóticas, locales o poco documentadas. |
 | Edición del usuario | Cualquier ficha puede editarse libremente para corregir errores o adaptar al contexto local. |
 
 Cada ficha muestra un badge de origen: `Base local` · `Generada por IA` · `Editada` · `Manual`.
 
 #### Contenido de la ficha
+
+El contenido se almacena como campos de texto. La edición manual actual ofrece origen, clima, luz, riego, fertilización, poda, trasplante, sustrato, plagas y observaciones. La lista siguiente conserva el alcance temático del diseño, sin implicar campos separados para cada punto:
 
 - Nombre científico y nombres comunes
 - Familia botánica y origen geográfico
@@ -373,25 +562,25 @@ Cada ficha muestra un badge de origen: `Base local` · `Generada por IA` · `Edi
 - Ver ficha en pantalla
 - Editar ficha — cualquier campo es editable. Al guardar el primer cambio, el badge cambia a "Editada"
 - Crear ficha manual — formulario en blanco
-- Descargar ficha como PDF formateado
-- Regenerar con IA — muestra aviso de confirmación antes de sobreescribir cambios manuales
+- Abrir versión de impresión en otra pestaña; el diálogo del navegador permite guardar como PDF
+- Regenerar con IA — reemplaza el contenido existente. **Previsto:** confirmación antes de sobrescribir cambios manuales
 
-> **Roadmap v2:** Considerar capa de anotaciones del usuario sobre la ficha base, diferenciando visualmente el contenido original del conocimiento propio del cultivador.
+> **Idea futura sin versión comprometida:** Considerar capa de anotaciones del usuario sobre la ficha base, diferenciando visualmente el contenido original del conocimiento propio del cultivador.
 
 ---
 
 ### M8 — Asistente IA por Ejemplar
 
-Chat de IA contextualizado para un árbol específico. El asistente conoce el historial completo del árbol.
+Chat de IA contextualizado para un árbol específico. La pantalla prepara hasta diez cuidados recientes y notas de la especie; los proveedores actuales incluyen en el prompt nombre, especie, estado, estación y hasta siete cuidados. Las notas de clase todavía no se incorporan al prompt del chat.
 
 #### Contexto que recibe la IA en cada consulta
 
-- Nombre y especie del árbol
-- Estilo de Bonsai, tamaño y estado actual
-- Últimos N cuidados registrados
-- Notas de clase asociadas a la especie, priorizando las vinculadas al ejemplar
-- Estación del año actual según hemisferio configurado
-- Pregunta o descripción del usuario
+- Nombre, especie y estado del árbol
+- Hasta siete cuidados, con fecha, tipo, condición y descripción
+- Estación según hemisferio configurado
+- Historial del chat, consulta e imagen adjunta cuando corresponda
+
+**Previsto:** incorporar estilo, tamaño y notas de clase priorizadas al prompt. Su presencia en `BonsaiContext` no implica que los proveedores actuales los usen.
 
 #### Casos de uso típicos
 
@@ -415,26 +604,25 @@ Chat de IA contextualizado para un árbol específico. El asistente conoce el hi
 #### Vistas
 
 - **Vista mensual:** grilla con mini íconos por tipo de cuidado en cada día. Al tocar un día se muestran sus eventos en panel inferior.
-- **Vista de próximos 30 días:** lista cronológica agrupada por semana/mes.
+- **Vista lista:** secciones Vencidos y Próximos 30 días, agrupadas por día, con historial de eventos pasados completados desplegable.
 - Toggle para cambiar entre vistas.
 
 #### Filtros combinables
 
-Los tres filtros pueden combinarse simultáneamente:
+En la vista lista se combinan filtros por tipo de evento y por un árbol:
 
-| Filtro | Valores posibles |
+| Filtro disponible | Valores |
 |---|---|
-| Tipo de evento | Cuidado registrado · Recordatorio manual · Recordatorio de seguimiento · Sugerencia IA |
-| Árbol | Uno o varios ejemplares (selector múltiple) |
-| Tipo de cuidado | Riego · Poda · Alambrado · Fertilización · Trasplante · etc. |
+| Tipo de evento | Todos, cuidado, recordatorio manual y recordatorio de seguimiento |
+| Árbol | Todos o un ejemplar |
 
-Los filtros activos se muestran como chips removibles. Botón "Limpiar filtros" restablece la vista completa.
+**Previsto:** selección de varios árboles, filtro por tipo de cuidado y chips removibles con limpieza global. `ai-suggestion` se conserva en el modelo pero está oculto en los filtros y la leyenda porque no hay un flujo que cree esos eventos (F008).
 
 #### Código de colores por tipo de evento
 
 - 🟢 Verde — cuidados registrados
 - 🟡 Dorado — recordatorios manuales
-- 🟣 Violeta — sugerencias IA
+- 🟣 Violeta — reservado para sugerencias IA, oculto de la leyenda actual
 - 🟠 Naranja — recordatorios de seguimiento / alertas
 
 #### Tipos de eventos
@@ -444,17 +632,15 @@ Los filtros activos se muestran como chips removibles. Botón "Limpiar filtros" 
 | Cuidado registrado | Manual | Aparece automáticamente al registrar un cuidado en M4 |
 | Recordatorio manual | Manual | El usuario crea un recordatorio para fecha futura |
 | Recordatorio de seguimiento | Manual | Se crea desde el formulario de cuidado |
-| Sugerencia por IA | Automático | La app genera sugerencias por árbol y especie |
+| Sugerencia por IA | **Previsto** | Tipo reservado, sin generación automática actual |
 
 #### Sugerencias automáticas por IA
 
-La app analiza periódicamente la colección considerando: especie y requerimientos estacionales, fecha del último cuidado de cada tipo, estación del año actual (según hemisferio), y estado del árbol.
+**Previsto:** analizar periódicamente la colección considerando: especie y requerimientos estacionales, fecha del último cuidado de cada tipo, estación del año actual (según hemisferio), y estado del árbol.
 
 #### Notificaciones push
 
-- En Android: notificaciones nativas a través de Web Push API
-- En iOS: requiere PWA instalada en pantalla de inicio (iOS 16.4+)
-- Si no hay soporte, se muestra badge visual en el ícono de la app
+**Previsto:** notificaciones del sistema mediante Web Push y badge del ícono. La implementación actual guarda `pushNotifications` como preferencia, pero no tiene suscripción ni envío push. Los pendientes se muestran dentro de la app, en el calendario y el header; no equivalen a notificaciones del sistema.
 
 ---
 
@@ -462,7 +648,7 @@ La app analiza periódicamente la colección considerando: especie y requerimien
 
 #### Flujo
 
-1. El usuario accede desde el FAB expandible del Inventario (opción "Identificar con IA") o desde la ficha de un árbol
+1. El usuario accede desde el FAB expandible del Inventario (opción "Identificar con IA")
 2. Selecciona una foto desde cámara o galería
 3. La app envía la imagen al modelo de visión del proveedor configurado
 4. La IA devuelve: nombre científico probable, nombre común, nivel de confianza, observaciones
@@ -483,15 +669,16 @@ La app analiza periódicamente la colección considerando: especie y requerimien
 - Genera un archivo `.zip`: JSON con todos los datos + carpeta con todas las imágenes
 - Nombre automático: `niwamiri_backup_YYYY-MM-DD.zip`
 - El usuario lo guarda donde quiera (Descargas, Google Drive, iCloud, etc.)
-- Barra de progreso durante la generación
+- Indicador de carga durante la generación y estado de éxito/error; no hay porcentaje de progreso
+- En móvil intenta compartir el ZIP con el selector nativo, con fallback a descarga directa
 
 #### Importar / Restaurar
 
 - El usuario selecciona un archivo `.zip` de backup
-- La app valida el formato antes de proceder
-- **Modo Reemplazar:** borra datos actuales e importa el backup
-- **Modo Fusionar:** agrega los datos importados sin borrar los existentes, con detección de duplicados
-- Se muestra resumen de lo que se importará antes de confirmar
+- Se comprueba que el ZIP contenga `data.json` y se parsea su JSON; no hay validación exhaustiva de estructura
+- **Modo Reemplazar:** pide confirmación, limpia las colecciones de dominio e importa el backup; actualiza configuración si viene incluida
+- **Modo Fusionar:** conserva registros no incluidos y agrega o sobrescribe por ID mediante `bulkPut`; no compara contenido ni fecha de modificación
+- **Previsto:** resumen de registros a importar antes de confirmar y validación completa del archivo
 
 #### Backup parcial
 
@@ -509,7 +696,7 @@ El usuario puede exportar solo un ejemplar (ficha + historial + fotos) para comp
 | API Key | Clave del proveedor (campo oculto con opción de revelar) | Texto cifrado |
 | Modelo de IA | Modelo específico dentro del proveedor | Según proveedor |
 | Calidad de fotos | Balance calidad / almacenamiento | Alta / Media / Baja |
-| Notificaciones push | Activar/desactivar | On / Off |
+| Notificaciones push | Preferencia persistida; servicio push aún no implementado | On / Off |
 | Tema visual | Modo claro u oscuro | Claro / Oscuro |
 | Tamaño de letra | Opción de accesibilidad | Normal / Grande |
 
@@ -525,7 +712,7 @@ Módulo para capturar conocimiento general aprendido en clase que no está atado
 |---|---|---|
 | Ancla obligatoria | Especie | Ninguna |
 | Uso típico | Nota sobre cómo podar este Ficus | Cómo hacer un acodo aéreo en general |
-| Contexto de la IA | Panel de cuidado de un árbol específico | Asistente General + panel de cuidado |
+| Contexto de la IA | Panel de cuidado de un árbol específico | Asistente General; integración con panel de cuidado prevista |
 
 #### Funcionalidades
 
@@ -535,7 +722,7 @@ Módulo para capturar conocimiento general aprendido en clase que no está atado
 - Cada nota: fecha de la clase, título opcional, texto libre, etiquetas, fotos adjuntas opcionales
 - Edición y eliminación de notas
 - FAB (+) para nueva nota
-- Vista agrupada por etiqueta (toggle lista / por etiqueta)
+- **Previsto:** vista agrupada por etiqueta (toggle lista / por etiqueta)
 
 #### Formulario de nueva nota
 
@@ -549,8 +736,8 @@ Módulo para capturar conocimiento general aprendido en clase que no está atado
 
 #### Integración con IA
 
-- Las notas de la Bitácora enriquecen el panel contextual de M4 (registro de cuidados): si la etiqueta de una nota coincide con el tipo de cuidado en curso, se incluye como contexto adicional
-- El Asistente IA General (M14) recibe las últimas N notas de la Bitácora como parte de su contexto para dar respuestas más personalizadas al conocimiento del usuario
+- **Previsto:** enriquecer el panel contextual de M4 con notas de Bitácora cuya etiqueta coincida con el cuidado; actualmente CareForm usa notas de clase
+- La pantalla del Asistente General prepara hasta diez notas de Bitácora. Los proveedores actuales usan las cinco primeras, con hasta 120 caracteres de contenido por nota, para contextualizar la respuesta
 
 ---
 
@@ -562,16 +749,16 @@ Chat libre con IA sin árbol de referencia. El asistente conoce el inventario co
 
 | — | M8 Asistente por Ejemplar | M14 Asistente General |
 |---|---|---|
-| Contexto principal | Historial completo de un árbol | Inventario completo + Bitácora |
+| Contexto principal | Datos del árbol y cuidados recientes | Inventario completo + notas recientes de Bitácora |
 | Acceso | Desde la ficha del árbol | Tab dedicado en BottomNav |
-| Historial | Por árbol | Por conversación, independiente |
+| Historial | Una conversación por árbol | Una conversación general persistida |
 | Uso típico | "¿Cuándo podo este Ficus?" | "¿Qué especie elijo para mi próximo proyecto?" |
 
 #### Contexto que recibe la IA en cada consulta
 
-- Inventario del usuario: nombre, especie, estado y estilo de cada árbol
+- Inventario del usuario: nombre, especie, nombre común si existe y estado de cada árbol
 - Estación del año actual (según hemisferio configurado)
-- Últimas N notas de la Bitácora (M13) como conocimiento técnico del usuario
+- Notas recientes de Bitácora: la pantalla prepara diez; el prompt usa hasta cinco, con contenido abreviado a 120 caracteres por nota
 - Historial de la conversación activa
 - Mensaje y foto adjunta del usuario (si corresponde)
 
@@ -585,17 +772,19 @@ Chat libre con IA sin árbol de referencia. El asistente conoce el inventario co
 
 #### Funcionalidades
 
-- Lista de conversaciones pasadas ordenadas por última interacción (título + fecha)
-- Múltiples conversaciones independientes persistidas en IndexedDB
-- Título de conversación: editable manualmente o auto-generado a partir del primer mensaje
-- Adjuntar foto en cualquier mensaje (desde cámara o galería)
-- Indicador de carga mientras la IA procesa
-- Crear nueva conversación
-- Eliminar conversación (con confirmación)
+- Una conversación general persistida en IndexedDB mediante `bonsaiId = 'general'`
+- Adjuntar una foto desde cámara o galería en una consulta
+- Indicador de carga y errores del proveedor
+- Respuestas del asistente renderizadas como Markdown
+- Limpiar el historial mediante el botón correspondiente; actualmente sin confirmación
+
+**Previsto:** múltiples conversaciones independientes, listado por última interacción, títulos editables o automáticos y confirmación al eliminar una conversación.
 
 ---
 
 ## 5. Modelo de Datos
+
+Los nombres de las tablas conceptuales siguientes se presentan en español cuando ayudan a leer el diseño. Los campos TypeScript e índices vigentes se consultan en [schema.ts](../src/db/schema.ts); no son traducciones que deban implementarse como campos nuevos.
 
 ### 5.1 Entidades principales
 
@@ -603,9 +792,9 @@ Chat libre con IA sin árbol de referencia. El asistente conoce el inventario co
 |---|---|---|
 | Bonsai | Árbol de la colección | 1 → N Cuidados, N Fotos, N Conversaciones |
 | Care | Registro de intervención | N:1 con Bonsai, N Fotos adjuntas |
-| Photo | Imagen asociada a árbol, cuidado o nota de bitácora | N:1 con Bonsai, Care o JournalNote |
+| Photo | Imagen de galería o cuidado | N:1 con Bonsai; Care opcional. La bitácora guarda sus fotos inline |
 | ClassNote | Nota con ancla en especie + vínculos opcionales | Especie (obligatorio) + Ejemplar + Cuidado (opcionales) |
-| JournalNote | Nota de bitácora sin ancla obligatoria | Fotos opcionales, etiquetas libres |
+| JournalNote | Nota de bitácora sin ancla obligatoria | Fotos base64 inline opcionales, etiquetas libres |
 | SpeciesSheet | Ficha técnica cacheada de una especie | Vinculada por nombre de especie |
 | CalendarEvent | Evento futuro en el calendario | N:1 con Bonsai (opcional) |
 | AIConversation | Historial de chat IA | N:1 con Bonsai (ejemplar) o sin Bonsai (general) |
@@ -617,12 +806,14 @@ Chat libre con IA sin árbol de referencia. El asistente conoce el inventario co
 |---|---|---|
 | id | UUID | Generado automáticamente |
 | nombre | string | Nombre o apodo del árbol |
-| especie | string | Nombre científico o común |
+| especie | string | Nombre científico; `commonName` es el nombre común opcional |
+| nombreComun | string? | Campo `commonName` opcional |
+| etiquetas | string[]? | Campo `tags` opcional |
 | estilo | string (enum) | Chokkan, Moyogi, etc. |
 | fechaAdquisicion | date | Opcional |
 | anioGerminacionEstimado | number | Opcional. Edad = año actual − este campo |
 | origen | string (enum) | Prebonsai, Yamadori, etc. |
-| categoria | string (enum) | Mame, Shohin, Chuhin, Dai |
+| categoria | string (enum) | Shito, Mame, Shohin, Chuhin, Dai |
 | macetaSustrato | string | Descripción libre |
 | ubicacion | string | Descripción libre |
 | estado | string (enum) | En desarrollo, En mantenimiento, etc. |
@@ -640,7 +831,7 @@ Chat libre con IA sin árbol de referencia. El asistente conoce el inventario co
 | texto | string | Contenido principal |
 | fecha | date | Fecha de la clase o experiencia (default: hoy) |
 | etiquetas | string[] | Tags libres definidos por el usuario |
-| fotosAdjuntas | UUID[] | Referencias a fotos (tabla Photo) |
+| fotosAdjuntas | string[]? | Campo `photos`: imágenes base64 comprimidas inline, no IDs de Photo |
 | creadoEn | timestamp | Fecha de creación del registro |
 | actualizadoEn | timestamp | Última modificación |
 
@@ -654,20 +845,21 @@ Chat libre con IA sin árbol de referencia. El asistente conoce el inventario co
 | fecha | timestamp | Fecha y hora del cuidado |
 | descripcion | string | Observaciones libres |
 | estadoArbol | string (enum) | Bien, Regular, Con problemas |
-| camposEspecificos | JSON object | Campos variables según tipo de cuidado |
+| camposEspecificos | JSON object? | Detalles opcionales por tipo en `specificFields`, compartidos por carga individual y masiva (F035, v1.5.0) |
 | recordatorioSeguimiento | object | Fecha + descripción (opcional) |
 | creadoEn | timestamp | Fecha de creación |
 
-### 5.5 Entidad AIConversation (extendida)
+### 5.5 Entidad AIConversation vigente
 
-| Campo | Tipo | Notas |
+| Campo real | Tipo | Notas |
 |---|---|---|
-| id | UUID | Generado automáticamente |
-| bonsaiId | UUID? | `null` para conversaciones generales (M14); UUID para conversaciones por ejemplar (M8) |
-| titulo | string | Editable o auto-generado a partir del primer mensaje |
-| mensajes | Message[] | Historial completo de la conversación |
-| fechaUltimaInteraccion | timestamp | Para ordenar la lista de conversaciones |
-| creadoEn | timestamp | Fecha de creación |
+| id | string | UUID generado automáticamente |
+| bonsaiId | string | ID del árbol o literal `general` para M14 |
+| messages | Array | Mensajes con rol, contenido y timestamp |
+| createdAt | number | Fecha de creación |
+| updatedAt | number | Última actualización |
+
+El esquema vigente no contiene título ni catálogo de conversaciones generales. Esos campos pertenecían al diseño extendido aún pendiente.
 
 ---
 
@@ -677,27 +869,27 @@ Chat libre con IA sin árbol de referencia. El asistente conoce el inventario co
 
 | Operación | Descripción | Usa visión |
 |---|---|---|
-| `identificarEspecie(foto)` | Identifica especie a partir de imagen | Sí |
-| `generarFichaTecnica(especie)` | Genera ficha técnica estructurada | No |
-| `resumirNotasParaCuidado(notas, tipoCuidado, especie)` | Resumen contextual para formulario de cuidado | No |
-| `consultarAsistente(mensajes, contextoArbol)` | Chat libre con contexto del árbol (M8) | Opcional |
-| `consultarAsistenteGeneral(mensajes, contextoGeneral)` | Chat libre con contexto de inventario + bitácora (M14) | Opcional |
-| `sugerirProximosCuidados(bonsai, estacion)` | Lista de cuidados recomendados | No |
-| `sugerirRecordatorio(cuidado, contexto)` | Fecha y descripción sugerida para seguimiento | No |
-| `verificarConexion(apiKey)` | Prueba validez de la API key | No |
+| `identifySpecies(imageBase64, lang?)` | Identifica especie a partir de imagen | Sí |
+| `generateSpeciesSheet(species)` | Genera ficha técnica estructurada | No |
+| `summarizeNotesForCare(notes, careType, species)` | Resumen contextual para formulario de cuidado | No |
+| `chat(messages, context)` | Chat libre con contexto del árbol (M8) | Opcional |
+| `chatGeneral(messages, context)` | Chat libre con contexto de inventario + bitácora (M14) | Opcional |
+| `suggestNextCares(context)` | Contrato disponible; sin planificación periódica de eventos en la UI | No |
+| `suggestReminder(care, context)` | Fecha y descripción sugerida para seguimiento | No |
+| `verifyConnection(apiKey)` | Prueba validez de la API key | No |
 
 ### 6.2 Construcción del contexto
 
 **Contexto por ejemplar (M8):** para consultas libres y sugerencias sobre un árbol específico:
 - Nombre y especie del árbol
 - Estilo, tamaño y estado actual
-- Historial de los últimos 10 cuidados registrados
-- Notas de clase disponibles para la especie (priorizando las del ejemplar)
+- La pantalla prepara diez cuidados; los proveedores incluyen hasta siete en el prompt
+- Notas de clase recuperadas por la pantalla, aún sin uso en los prompts de chat
 - Estación del año actual según hemisferio configurado
 
 **Contexto general (M14):** para consultas sin árbol de referencia:
-- Inventario completo: nombre, especie, estado y estilo de cada árbol de la colección
-- Últimas N notas de la Bitácora (M13) del usuario
+- Inventario completo: nombre, especie, nombre común opcional y estado de cada árbol
+- La pantalla prepara diez notas de Bitácora; los proveedores incluyen hasta cinco con contenido abreviado
 - Estación del año actual según hemisferio configurado
 
 ### 6.3 Modelo BYOK (Bring Your Own Key)
@@ -719,11 +911,11 @@ Cada usuario configura su propia API key durante el onboarding. La key se guarda
 | ✨ Asistente | Chat IA general | M14 |
 | 📅 Calendario | Calendario y Recordatorios | M9 |
 
-**Ajustes (M12)** se accede mediante el ícono ⚙️ en la esquina superior derecha del header de la pantalla Colección. No ocupa un tab propio ya que es una sección de configuración de uso esporádico.
+**Ajustes (M12)** se accede desde el ícono ⚙️ del header compartido en las pantallas que lo muestran. Se oculta en Ajustes y Backup para evitar circularidad; no ocupa un tab propio.
 
 **Identificar (M10)** se accede desde:
 - El botón "+" de nuevo árbol en el Inventario (M2)
-- Un botón dentro del Asistente General (M14) para adjuntar foto con intención de identificar especie
+- **Previsto:** acceso dedicado desde el Asistente General; sus botones actuales adjuntan una foto al chat, no navegan al flujo M10
 
 ### 7.2 Navegación dentro de la Ficha del Ejemplar
 
@@ -738,6 +930,8 @@ Scroll vertical con 6 secciones colapsables:
 ---
 
 ## 8. Requerimientos No Funcionales
+
+Los límites de rendimiento, compatibilidad, tamaño de imagen, accesibilidad y volumen de backup son **objetivos del diseño**, no resultados medidos por la suite actual. La verificación de almacenamiento no certifica esos objetivos. La compresión depende de dimensiones y calidad, sin tope garantizado de 300 KB. La migración remota debe contemplar las excepciones de arquitectura detalladas en SPEC.md.
 
 | Categoría | Requerimiento |
 |---|---|
@@ -756,22 +950,22 @@ Scroll vertical con 6 secciones colapsables:
 
 ## 9. Stack Tecnológico
 
-### Decisión: React 18 + Vite (desde cero)
+### Decisión: React + Vite (desde cero)
 
 Se eligió arrancar desde cero con Vite en lugar de usar un template pre-configurado para mantener control total sobre cada decisión arquitectónica y facilitar la comprensión y modificación futura.
 
 | Necesidad | Librería | Justificación |
 |---|---|---|
-| UI Framework | React 18 | Ecosistema más amplio, mayor disponibilidad de recursos |
-| Bundler | Vite | Build ultrarrápido, excelente experiencia en MAC |
+| UI Framework | React 19 | Implementación actual del proyecto |
+| Bundler | Vite 8 | Desarrollo y build del sitio estático |
 | PWA | vite-plugin-pwa | Integración nativa con Vite |
-| Routing | React Router v6 | Estándar de facto para React |
+| Routing | React Router 7 / HashRouter | Navegación compatible con hosting estático |
 | Estado global | Zustand | Simple, sin boilerplate, ideal para escala personal |
-| Base de datos local | Dexie.js | Wrapper elegante sobre IndexedDB con soporte TypeScript |
+| Base de datos local | Dexie.js 4 | Persistencia IndexedDB con soporte TypeScript |
 | i18n | react-i18next | Estándar para i18n en React |
-| Componentes UI | shadcn/ui | Accesibles, customizables, sin dependencia cerrada |
+| Componentes UI | Componentes propios, configuración shadcn/ui y Radix Slider | Componentes reutilizables y slider de rango |
 | Íconos | Lucide React | Consistente, liviano, compatible con React |
-| Calendario | react-big-calendar | Vistas mensual, semanal y agenda |
+| Calendario | Vistas propias + date-fns | react-big-calendar permanece como dependencia, sin uso en Calendar.tsx |
 | Fechas | date-fns | Liviana, funcional, tree-shakeable |
 | Estilos | Tailwind CSS | Utility-first, mobile-first, integración con shadcn/ui |
 
@@ -781,10 +975,10 @@ Se eligió arrancar desde cero con Vite en lugar de usar un template pre-configu
 |---|---|---|
 | Tipo de app | PWA | App nativa (React Native / Flutter) |
 | Almacenamiento v1 | IndexedDB via Dexie.js | Backend + nube |
-| Almacenamiento futuro | Supabase (migración sin cambios en UI) | Firebase |
+| Almacenamiento futuro | Supabase previsto; requiere cubrir excepciones de acceso directo | Firebase |
 | Proveedor IA | Multi-proveedor: Gemini, OpenAI, Claude | Gemini exclusivo |
 | Modelo de API key | BYOK — cada usuario configura la suya | API key compartida en backend |
-| UI Framework | React 18 + Vite | Vue 3, Svelte, Angular |
+| UI Framework | React 19 + Vite 8 | Vue 3, Svelte, Angular |
 | Gestión de estado | Zustand | Redux, Context API |
 | Nombre de la app | NiwaMirî | BonsaiTracker, Raíces, Ceiwa |
 
@@ -818,15 +1012,19 @@ Se eligió arrancar desde cero con Vite en lugar de usar un template pre-configu
 
 ## 11. Pendientes y Decisiones Abiertas
 
-| # | Tema | Descripción | Estado |
-|---|---|---|---|
-| P2 | Tema visual | Paleta cerrada, tipografía cerrada. Pendiente implementación completa en código | En curso |
-| P4 | Base de datos de especies | Definir qué especies estarán precargadas y con qué nivel de detalle | Pendiente |
-| P5 | Cifrado de API key | Implementar con Web Crypto API (AES-GCM) | Pendiente |
-| P6 | Hemisferio por defecto | Sur (Argentina) — confirmar al implementar | Pendiente |
-| P7 | Límite de fotos por árbol | ¿Se impone algún límite para proteger el almacenamiento? | Pendiente |
-| P8 | Modo de fusión en backup | Definir reglas de detección de duplicados en importación modo fusión | Pendiente |
+Se conserva la numeración histórica para las decisiones iniciales. Los requisitos adicionales marcados **previsto** en cada módulo no comprometen nuevas actualizaciones ni reemplazan el backlog de bugs.
+
+| # | Tema | Situación en la implementación de referencia |
+|---|---|---|
+| P2 | Tema visual | Implementados temas claro/oscuro y tokens; las pruebas de accesibilidad siguen siendo necesarias |
+| P4 | Base de datos de especies | Previsto: definir catálogo precargado; no hay fichas cargadas en seeds |
+| P5 | Cifrado de API key | Implementado con AES-GCM; ver alcance técnico en SPEC.md |
+| P6 | Hemisferio por defecto | Definido e implementado: Sur, configurable |
+| P7 | Límite de fotos por árbol | No se impone un límite de cantidad; permanece como decisión abierta |
+| P8 | Modo de fusión en backup | Implementado por ID mediante `bulkPut`; conciliación por contenido/conflictos no implementada |
+
+Otras funciones del diseño aún previstas: push, planificación automática de cuidados, campos especializados de cuidados, filtros ampliados, integración Bitácora–CareForm, confirmación al regenerar fichas y múltiples conversaciones generales. Su descripción detallada permanece en el módulo correspondiente.
 
 ---
 
-*FUNCTIONAL_SPEC.md — NiwaMirî v1.0 — Documento vivo, actualizar al tomar decisiones nuevas*
+*FUNCTIONAL_SPEC.md — Referencia de aplicación 1.5.0, revisión documental 2026-10-27. Actualizar al cambiar el comportamiento o tomar decisiones nuevas.*

@@ -1,642 +1,232 @@
 # NiwaMirî — Especificación Técnica
 
-> **Jardín pequeño** — *niwa* (庭, japonés) + *mirî* (pequeño, guaraní entrerriano)
-> App de gestión de colecciones Bonsai con IA integrada. Origen: Entre Ríos, Argentina.
+> Referencia de implementación: aplicación 1.5.0. Revisión documental: 2026-10-27.
+> PWA de gestión de colecciones de bonsáis con IA, sin backend propio.
 
----
+**B026 en v1.5.0, en revisión:** nueva pantalla de historial de cuidados y actualización de sus relaciones, pendientes de validación del usuario.
 
-## 1. Stack tecnológico
+El proceso de desarrollo está en [DEVELOPMENT.md](DEVELOPMENT.md) y las instrucciones para agentes en [AGENTS.md](../AGENTS.md). El alcance funcional se consulta en [FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md).
 
-| Necesidad | Librería | Versión |
-|---|---|---|
-| UI Framework | React | 18 |
-| Lenguaje | TypeScript | 5.x |
-| Bundler / Dev server | Vite | 5.x |
-| PWA | vite-plugin-pwa | latest |
-| Routing | React Router | v6 |
-| Estado global | Zustand | latest |
-| Base de datos local | Dexie.js | 3.x |
-| i18n | react-i18next | latest |
-| Componentes UI | shadcn/ui | latest |
-| Íconos | Lucide React | latest |
-| Calendario | react-big-calendar | latest |
-| Fechas | date-fns | latest |
-| Estilos | Tailwind CSS | 3.x |
+## 1. Stack vigente
 
-**Comando de creación del proyecto:**
-```bash
-npm create vite@latest niwamiri -- --template react-ts
-cd niwamiri
-npm install
-```
-
----
-
-## 2. Estructura de carpetas
-
-```
-niwamiri/
-├── public/
-│   ├── icons/                  # Íconos PWA (logo NiwaMirî en distintos tamaños)
-│   └── manifest.json
-├── src/
-│   ├── assets/                 # Imágenes estáticas, fuentes
-│   ├── components/             # Componentes reutilizables de UI
-│   │   ├── ui/                 # Componentes base (Button, Card, Input, Badge...)
-│   │   ├── layout/             # AppShell, BottomNav, Header
-│   │   ├── bonsai/             # BonsaiCard, BonsaiGrid, HeroPhoto
-│   │   ├── care/               # CareEntry, CareForm, CareTypeSelector
-│   │   ├── calendar/           # CalendarGrid, EventCard, FilterChips
-│   │   ├── ai/                 # AIPanel, AIChatBubble, AISuggestButton
-│   │   └── logo/               # LogoSVG component
-│   ├── pages/                  # Una página por módulo
-│   │   ├── Onboarding.tsx      # M1
-│   │   ├── Inventory.tsx       # M2
-│   │   ├── BonsaiDetail.tsx    # M3
-│   │   ├── CareForm.tsx        # M4
-│   │   ├── Gallery.tsx         # M5
-│   │   ├── ClassNotes.tsx      # M6
-│   │   ├── SpeciesSheet.tsx    # M7
-│   │   ├── AIAssistant.tsx     # M8
-│   │   ├── Calendar.tsx        # M9
-│   │   ├── Identify.tsx        # M10
-│   │   ├── Backup.tsx          # M11
-│   │   └── Settings.tsx        # M12
-│   ├── services/               # Capa de abstracción — nunca llamar directo a DB o IA desde UI
-│   │   ├── storage/
-│   │   │   ├── StorageService.ts       # Interfaz abstracta
-│   │   │   └── DexieStorageService.ts  # Implementación IndexedDB
-│   │   └── ai/
-│   │       ├── AIService.ts            # Interfaz abstracta
-│   │       ├── GeminiProvider.ts       # Implementación Gemini
-│   │       ├── OpenAIProvider.ts       # Implementación OpenAI
-│   │       └── ClaudeProvider.ts       # Implementación Anthropic
-│   ├── db/
-│   │   ├── schema.ts           # Definición completa de Dexie.js
-│   │   └── seeds.ts            # Datos de prueba para desarrollo
-│   ├── store/                  # Estado global con Zustand
-│   │   ├── appStore.ts         # Estado general (tema, idioma, configuración)
-│   │   ├── bonsaiStore.ts      # Colección de ejemplares
-│   │   └── calendarStore.ts    # Eventos y recordatorios
-│   ├── hooks/                  # Custom hooks
-│   │   ├── useBonsai.ts
-│   │   ├── useAI.ts
-│   │   ├── useStorage.ts
-│   │   └── useSeason.ts        # Calcula estación del año según hemisferio
-│   ├── i18n/
-│   │   ├── index.ts            # Configuración react-i18next
-│   │   ├── es.json             # Traducciones español
-│   │   └── en.json             # Traducciones inglés
-│   ├── utils/
-│   │   ├── dates.ts            # Helpers de fecha con date-fns
-│   │   ├── images.ts           # Compresión de imágenes (max 1200px, calidad 85%)
-│   │   ├── crypto.ts           # Cifrado de API key (Web Crypto API)
-│   │   └── backup.ts           # Export/import ZIP
-│   ├── types/                  # Tipos TypeScript globales
-│   │   └── index.ts
-│   ├── styles/
-│   │   └── globals.css         # Variables CSS, Tailwind base
-│   ├── App.tsx                 # Router principal
-│   └── main.tsx                # Entry point
-├── SPEC.md                     # Este archivo
-├── vite.config.ts
-├── tailwind.config.ts
-├── tsconfig.json
-└── package.json
-```
-
----
-
-## 3. Design tokens
-
-### Colores
-```ts
-// tokens/colors.ts
-export const colors = {
-  // Verdes
-  green1: '#0f2e1c',
-  green2: '#1a4a2e',
-  green3: '#2e7048',   // primario
-  green4: '#3d9060',
-  green5: '#6ec48a',
-  green6: '#b8dcc8',
-  accent: '#4ab87a',   // acento interactivo
-
-  // Semánticos
-  warn:   '#e07840',   // alertas / recordatorios seguimiento
-  gold:   '#c8a84a',   // recordatorios manuales
-  ai:     '#7a6ec4',   // sugerencias IA
-
-  // Modo oscuro (preferido)
-  dark: {
-    bg:       '#0e1a13',
-    bg2:      '#141f18',
-    bg3:      '#1c2b21',
-    card:     '#1a2820',
-    card2:    '#213328',
-    border:   'rgba(255,255,255,0.07)',
-    border2:  'rgba(255,255,255,0.12)',
-    text1:    '#eef4f0',
-    text2:    '#8aaa96',
-    text3:    '#4a6a56',
-    nav:      '#111d16',
-  },
-
-  // Modo claro
-  light: {
-    bg:       '#EFEDE8',
-    bg2:      '#E8E5DF',
-    bg3:      '#f5f3ef',
-    card:     '#ffffff',
-    card2:    '#f7f5f1',
-    border:   'rgba(0,0,0,0.07)',
-    border2:  'rgba(0,0,0,0.12)',
-    text1:    '#1a1a1a',
-    text2:    '#6a7a6e',
-    text3:    '#aab8b0',
-    nav:      '#ffffff',
-  },
-}
-```
-
-### Tipografías
-```css
-/* Google Fonts — cargar en index.html */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400&family=DM+Sans:wght@300;400;500;600&display=swap');
-
-/* Uso:
-   Títulos / nombres de árboles / display: font-family: 'Fraunces', serif
-   Cuerpo / etiquetas / UI: font-family: 'DM Sans', sans-serif
-*/
-```
-
----
-
-## 4. Schema de base de datos (Dexie.js)
-
-```ts
-// src/db/schema.ts
-import Dexie, { Table } from 'dexie';
-
-// ── TIPOS ──────────────────────────────────────────────────────
-
-export type BonsaiStatus = 'developing' | 'maintenance' | 'recovery' | 'donated' | 'dead';
-export type BonsaiStyle  = 'chokkan' | 'moyogi' | 'shakan' | 'kengai' | 'han-kengai' |
-                           'hokidachi' | 'fukinagashi' | 'yose-ue' | 'literati' | 'other';
-export type BonsaiSize   = 'mame' | 'shohin' | 'chuhin' | 'dai';
-export type BonsaiOrigin = 'prebonsai' | 'yamadori' | 'seed' | 'cutting' | 'gift' | 'purchase';
-
-export type CareType =
-  | 'watering' | 'fertilizing' | 'maintenance-pruning' | 'structural-pruning'
-  | 'wiring' | 'wire-removal' | 'repotting' | 'root-pruning'
-  | 'defoliation' | 'pest-treatment' | 'jin-shari' | 'relocation'
-  | 'observation' | 'other';
-
-export type TreeCondition = 'good' | 'regular' | 'problematic';
-export type AIProvider    = 'gemini' | 'openai' | 'claude';
-export type SheetOrigin   = 'local-db' | 'ai-generated' | 'edited' | 'manual';
-export type NoteScope     = 'species' | 'specimen' | 'care';
-
-// ── ENTIDADES ─────────────────────────────────────────────────
-
-export interface Bonsai {
-  id:                    string;       // UUID
-  name:                  string;       // Nombre/apodo del árbol
-  species:               string;       // Nombre científico o común
-  style?:                BonsaiStyle;
-  acquisitionDate?:      string;       // ISO date
-  germinationYear?:      number;       // Año estimado de germinación
-  origin?:               BonsaiOrigin;
-  size?:                 BonsaiSize;
-  potAndSubstrate?:      string;
-  location?:             string;
-  status:                BonsaiStatus;
-  generalNotes?:         string;
-  mainPhotoId?:          string;       // ref → Photo.id
-  createdAt:             number;       // timestamp
-  updatedAt:             number;
-}
-
-export interface Care {
-  id:                    string;
-  bonsaiId:              string;       // ref → Bonsai.id
-  type:                  CareType;
-  date:                  number;       // timestamp
-  description?:          string;
-  treeCondition:         TreeCondition;
-  specificFields?:       Record<string, unknown>; // campos variables por tipo
-  followUpReminder?: {
-    date:                number;
-    description:         string;
-  };
-  createdAt:             number;
-}
-
-export interface Photo {
-  id:                    string;
-  bonsaiId:              string;       // ref → Bonsai.id
-  careId?:               string;       // ref → Care.id (opcional)
-  imageData:             string;       // base64 comprimida (max 1200px, calidad 85%)
-  takenAt:               number;       // timestamp
-  description?:          string;
-  isMainPhoto:           boolean;
-  createdAt:             number;
-}
-
-export interface ClassNote {
-  id:                    string;
-  species:               string;       // ANCLA OBLIGATORIA
-  specimenId?:           string;       // ref → Bonsai.id (opcional)
-  careId?:               string;       // ref → Care.id (opcional)
-  classDate:             number;       // timestamp
-  title?:                string;
-  content:               string;
-  createdAt:             number;
-  updatedAt:             number;
-}
-
-export interface SpeciesSheet {
-  id:                    string;
-  species:               string;       // nombre canónico
-  origin:                SheetOrigin;
-  content:               Record<string, string>; // campos de la ficha
-  lastUpdated:           number;
-}
-
-export interface CalendarEvent {
-  id:                    string;
-  bonsaiId?:             string;       // ref → Bonsai.id (opcional para eventos globales)
-  type:                  'care' | 'manual-reminder' | 'followup-reminder' | 'ai-suggestion';
-  careType?:             CareType;
-  title:                 string;
-  description?:          string;
-  date:                  number;       // timestamp
-  completed:             boolean;
-  createdAt:             number;
-}
-
-export interface AIConversation {
-  id:                    string;
-  bonsaiId:              string;
-  messages:              Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>;
-  createdAt:             number;
-  updatedAt:             number;
-}
-
-export interface AppConfig {
-  id:                    1;            // singleton
-  language:              'es' | 'en';
-  theme:                 'dark' | 'light';
-  hemisphere:            'north' | 'south';
-  aiProvider:            AIProvider;
-  aiModel?:              string;
-  encryptedApiKey?:      string;       // cifrada con Web Crypto API
-  photoQuality:          'high' | 'medium' | 'low';
-  pushNotifications:     boolean;
-  onboardingCompleted:   boolean;
-  fontSize:              'normal' | 'large';
-}
-
-// ── DATABASE CLASS ─────────────────────────────────────────────
-
-export class NiwaMiriDB extends Dexie {
-  bonsais!:       Table<Bonsai>;
-  cares!:         Table<Care>;
-  photos!:        Table<Photo>;
-  classNotes!:    Table<ClassNote>;
-  speciesSheets!: Table<SpeciesSheet>;
-  events!:        Table<CalendarEvent>;
-  conversations!: Table<AIConversation>;
-  config!:        Table<AppConfig>;
-
-  constructor() {
-    super('NiwaMiriDB');
-    this.version(1).stores({
-      bonsais:       '++id, species, status, updatedAt',
-      cares:         '++id, bonsaiId, type, date',
-      photos:        '++id, bonsaiId, careId, takenAt',
-      classNotes:    '++id, species, specimenId, careId, classDate',
-      speciesSheets: '++id, &species',
-      events:        '++id, bonsaiId, type, date, completed',
-      conversations: '++id, bonsaiId',
-      config:        '&id',
-    });
-  }
-}
-
-export const db = new NiwaMiriDB();
-```
-
----
-
-## 5. Interfaces de servicio
-
-### StorageService (abstracta)
-```ts
-// src/services/storage/StorageService.ts
-export interface StorageService {
-  // Bonsais
-  getBonsaiList(): Promise<Bonsai[]>;
-  getBonsaiById(id: string): Promise<Bonsai | undefined>;
-  saveBonsai(bonsai: Omit<Bonsai, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>;
-  updateBonsai(id: string, data: Partial<Bonsai>): Promise<void>;
-  deleteBonsai(id: string): Promise<void>;
-
-  // Cares
-  getCaresByBonsai(bonsaiId: string): Promise<Care[]>;
-  saveCare(care: Omit<Care, 'id' | 'createdAt'>): Promise<string>;
-  deleteCare(id: string): Promise<void>;
-
-  // Photos
-  getPhotosByBonsai(bonsaiId: string): Promise<Photo[]>;
-  savePhoto(photo: Omit<Photo, 'id' | 'createdAt'>): Promise<string>;
-  deletePhoto(id: string): Promise<void>;
-
-  // Class Notes
-  getNotesBySpecies(species: string): Promise<ClassNote[]>;
-  getNotesBySpecimen(specimenId: string): Promise<ClassNote[]>;
-  saveNote(note: Omit<ClassNote, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>;
-  updateNote(id: string, data: Partial<ClassNote>): Promise<void>;
-  deleteNote(id: string): Promise<void>;
-
-  // Species Sheets
-  getSheetBySpecies(species: string): Promise<SpeciesSheet | undefined>;
-  saveSheet(sheet: Omit<SpeciesSheet, 'id'>): Promise<string>;
-  updateSheet(id: string, data: Partial<SpeciesSheet>): Promise<void>;
-
-  // Calendar Events
-  getEventsByDateRange(from: number, to: number): Promise<CalendarEvent[]>;
-  saveEvent(event: Omit<CalendarEvent, 'id' | 'createdAt'>): Promise<string>;
-  updateEvent(id: string, data: Partial<CalendarEvent>): Promise<void>;
-  deleteEvent(id: string): Promise<void>;
-
-  // Config
-  getConfig(): Promise<AppConfig>;
-  updateConfig(data: Partial<AppConfig>): Promise<void>;
-}
-```
-
-### AIService (abstracta)
-```ts
-// src/services/ai/AIService.ts
-export interface AIMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  imageBase64?: string; // para consultas con foto
-}
-
-export interface BonsaiContext {
-  bonsai:      Bonsai;
-  recentCares: Care[];
-  classNotes:  ClassNote[];
-  season:      'spring' | 'summer' | 'autumn' | 'winter';
-}
-
-export interface AIService {
-  // Identificar especie por foto
-  identifySpecies(imageBase64: string): Promise<{
-    species: string;
-    confidence: 'high' | 'medium' | 'low';
-    notes: string;
-  }>;
-
-  // Generar ficha técnica de especie
-  generateSpeciesSheet(species: string): Promise<Record<string, string>>;
-
-  // Resumir notas de clase contextuales para un tipo de cuidado
-  summarizeNotesForCare(
-    notes: ClassNote[],
-    careType: CareType,
-    species: string
-  ): Promise<string>;
-
-  // Chat libre contextualizado por ejemplar
-  chat(messages: AIMessage[], context: BonsaiContext): Promise<string>;
-
-  // Sugerir próximos cuidados
-  suggestNextCares(context: BonsaiContext): Promise<Array<{
-    careType: CareType;
-    suggestedDate: number;
-    reason: string;
-  }>>;
-
-  // Sugerir recordatorio para un cuidado recién registrado
-  suggestReminder(care: Care, context: BonsaiContext): Promise<{
-    date: number;
-    description: string;
-  }>;
-
-  // Verificar que la API key es válida
-  verifyConnection(apiKey: string): Promise<boolean>;
-}
-```
-
----
-
-## 6. Rutas (React Router v6)
-
-```tsx
-// src/App.tsx
-const routes = [
-  { path: '/',                  element: <Inventory />        }, // M2
-  { path: '/onboarding',        element: <Onboarding />       }, // M1
-  { path: '/bonsai/:id',        element: <BonsaiDetail />     }, // M3
-  { path: '/bonsai/:id/care',   element: <CareForm />         }, // M4 nuevo
-  { path: '/bonsai/:id/care/:careId', element: <CareForm />   }, // M4 editar
-  { path: '/calendar',          element: <Calendar />         }, // M9
-  { path: '/identify',          element: <Identify />         }, // M10
-  { path: '/settings',          element: <Settings />         }, // M12
-  { path: '/settings/backup',   element: <Backup />           }, // M11
-];
-```
-
----
-
-## 7. Módulos funcionales (resumen)
-
-| Módulo | Descripción |
+| Capa | Implementación |
 |---|---|
-| **M1 Onboarding** | Asistente 4 pasos: bienvenida → elegir proveedor IA → obtener API key → verificar conexión. Solo se muestra la primera vez. |
-| **M2 Inventario** | Grilla de tarjetas (foto arriba, datos abajo). Búsqueda, filtro por especie (chips múltiples), chips de estación del año. Alerta visual en tarjeta por cuidados pendientes. |
-| **M3 Ficha del ejemplar** | Hero photo + stats rápidos + scroll vertical con 6 secciones colapsables: Resumen · Cuidados · Galería · Notas · Ficha Técnica · Asistente IA. FAB para nuevo cuidado. |
-| **M4 Registro de cuidados** | Formulario con selector de tipo (chips), fecha, estado del árbol, observaciones, fotos. Panel IA contextual con resumen de notas relevantes. Botón "Sugerir con IA" para recordatorio de seguimiento. |
-| **M5 Galería** | Grilla 3 columnas + línea de tiempo por mes. Fotos comprimidas (max 1200px, calidad 85%). |
-| **M6 Notas de clase** | Especie como ancla obligatoria. Vínculos opcionales a ejemplar y/o cuidado. Creación posible desde M4. Resumen IA contextual al registrar cuidados. |
-| **M7 Ficha técnica** | Origen: base local / IA / editada / manual. Badge de origen visible. Editable. Crear desde cero. Descargar PDF. Aviso al regenerar si hay cambios manuales. |
-| **M8 Asistente IA** | Chat contextualizado con historial del árbol, especie, cuidados y notas. Soporte de foto en consulta. |
-| **M9 Calendario** | Dos vistas: grilla mensual (mini íconos por tipo de cuidado) + lista próximos 30 días. Filtros combinables: tipo de evento + árbol + tipo de cuidado. Toggle entre vistas. |
-| **M10 Identificar** | Foto → API visión → nombre especie + confianza. Pre-rellena campo especie al crear nuevo árbol. |
-| **M11 Backup** | Export ZIP (JSON + fotos). Import con modos Reemplazar / Fusionar. Export individual por árbol. |
-| **M12 Configuración** | Idioma, tema, hemisferio, proveedor IA, API key cifrada, modelo, calidad de fotos, notificaciones, tamaño de letra (normal/grande). |
+| UI / lenguaje | React 19 / TypeScript 5.9 |
+| Bundler | Vite 8 |
+| Routing | React Router 7, con `HashRouter` |
+| Estilos | Tailwind CSS 3 y custom properties |
+| Estado | Zustand 5 |
+| Persistencia | Dexie 4 sobre IndexedDB |
+| Idiomas | i18next / react-i18next, español e inglés |
+| Componentes | Componentes propios, configuración shadcn/ui, Radix Slider y Lucide React |
+| Fechas / calendario | date-fns 4 y vistas propias en `Calendar.tsx` |
+| Markdown | react-markdown |
+| PWA | vite-plugin-pwa / Workbox |
+| Backup | JSZip |
+| Cifrado | Web Crypto API, AES-GCM |
+| Tests | Vitest 4, jsdom y fake-indexeddb |
+| Calidad | ESLint 9 y Prettier 3 |
+| Distribución | GitHub Pages desde `main` |
 
----
+Consultar [package.json](../package.json) para dependencias declaradas y [package-lock.json](../package-lock.json) para las resueltas. `react-big-calendar` permanece como dependencia, aunque la pantalla actual usa un calendario propio. Las menciones históricas a React 18, Router 6, Vite 5 y Dexie 3 correspondían al diseño inicial.
 
-## 8. Orden de desarrollo acordado
+El entorno y los comandos de instalación se mantienen en [DEVELOPMENT.md](DEVELOPMENT.md). No hay configuración de despliegue de Netlify/Vercel en el repositorio; son alternativas futuras de hosting estático.
 
-### Fase 1 — Proyecto base
-- [ ] Crear proyecto Vite + React + TypeScript
-- [ ] Instalar y configurar Tailwind CSS
-- [ ] Instalar todas las dependencias del stack
-- [ ] Configurar vite-plugin-pwa (manifest + service worker)
-- [ ] Configurar ESLint + Prettier
-- [ ] Estructura de carpetas completa
-- [ ] Variables CSS globales con design tokens
+## 2. Estructura real del proyecto
 
-### Fase 2 — Base de datos
-- [ ] Implementar schema Dexie.js completo (ver sección 4)
-- [ ] Implementar `DexieStorageService` (ver interfaz sección 5)
-- [ ] Crear datos de prueba en `seeds.ts`
-- [ ] Tests básicos de CRUD
-
-### Fase 3 — Routing y navegación
-- [ ] Configurar React Router v6 con todas las rutas
-- [ ] Componente `AppShell` con layout base
-- [ ] Componente `BottomNav`
-- [ ] Componente `Header` reutilizable
-- [ ] Guard de onboarding (redirigir si no completó configuración)
-
-### Fase 4 — AIService
-- [ ] Implementar interfaz `AIService` (ver sección 5)
-- [ ] Implementar `GeminiProvider`
-- [ ] Implementar `OpenAIProvider`
-- [ ] Implementar `ClaudeProvider`
-- [ ] Cifrado de API key con Web Crypto API
-- [ ] Hook `useAI` que consume el servicio según proveedor configurado
-
-### Fase 5 — i18n
-- [ ] Configurar react-i18next
-- [ ] Crear `es.json` con todas las cadenas de texto
-- [ ] Crear `en.json` con traducciones
-- [ ] Hook `useTranslation` disponible en toda la app
-
-### Fase 6 — Pantallas
-Orden sugerido (de más simple a más compleja):
-1. M12 Settings — sin datos, solo configuración
-2. M1 Onboarding — flujo lineal de 4 pasos
-3. M2 Inventory — listado + búsqueda + filtros
-4. M3 BonsaiDetail — ficha colapsable
-5. M4 CareForm — formulario + panel IA
-6. M5 Gallery — grilla de fotos
-7. M6 ClassNotes — notas + vínculos
-8. M7 SpeciesSheet — ficha técnica editable
-9. M8 AIAssistant — chat contextual
-10. M9 Calendar — grilla + lista + filtros
-11. M10 Identify — foto + IA
-12. M11 Backup — export/import ZIP
-
----
-
-## 9. Decisiones arquitectónicas importantes
-
-### Capa de abstracción (CRÍTICO)
-La UI **nunca** accede directamente a Dexie ni a las APIs de IA. Siempre usa `StorageService` y `AIService`. Esto permite migrar a Supabase en el futuro cambiando solo la implementación, sin tocar ninguna pantalla.
-
-```
-UI / Componentes
-      ↓
-StorageService / AIService   ← única puerta de entrada
-      ↓
-DexieStorageService / GeminiProvider / etc.
+```text
+AGENTS.md                 Reglas compartidas para agentes
+CLAUDE.md                 Entrada de contexto para Claude Code
+README.md                 Presentación e instalación
+docs/                     Proceso, especificaciones, backlog y changelog
+.github/workflows/        Publicación en GitHub Pages
+public/                   Favicon e íconos de la PWA
+scripts/                  Generación de íconos
+src/
+  pages/                  Pantallas M1–M14
+  components/
+    layout/               AppShell, Header y BottomNav
+    care/                 Formularios compartidos, detalles y filtros de cuidados
+    bonsai/               BonsaiCard
+    logo/                 LogoSVG
+    ui/                   SelectRow, SegmentedControl, Toggle y RangeSlider
+  services/
+    storage/              Contrato StorageService e implementación Dexie
+    ai/                   AIService y proveedores Gemini, OpenAI y Claude
+  store/                  Stores de aplicación, colección y calendario
+  hooks/                  Acceso a servicios, colección y estaciones
+  db/                     Esquema y seeds de desarrollo
+  i18n/                   Configuración y traducciones es/en
+  utils/                  Backups, cifrado, imágenes y fechas
+  styles/                 CSS global y tokens
+  test/                   Setup y tests de almacenamiento, flujos y backups
+  types/                  Tipos compartidos y detalles por tipo de cuidado
+  lib/                    Utilidades de componentes
+  App.tsx                 Rutas y guard de onboarding
+  main.tsx                Inicialización
 ```
 
-### API key
-- Se guarda cifrada en `AppConfig.encryptedApiKey` usando Web Crypto API (AES-GCM)
-- Nunca en texto plano, nunca en localStorage directamente
-- La key es por usuario, en su dispositivo — modelo BYOK
+El manifest y el service worker se generan durante el build a partir de [vite.config.ts](../vite.config.ts); no se mantiene un `public/manifest.json` manual.
+
+## 3. Arquitectura y servicios
+
+El diseño busca separar la UI del almacenamiento y de los proveedores de IA:
+
+```text
+Páginas / componentes / stores
+             ↓
+StorageService / AIService
+             ↓
+DexieStorageService / GeminiProvider / OpenAIProvider / ClaudeProvider
+```
+
+### Persistencia
+
+- [StorageService.ts](../src/services/storage/StorageService.ts): contrato común para árboles, cuidados, fotos, notas, fichas, eventos y configuración.
+- [DexieStorageService.ts](../src/services/storage/DexieStorageService.ts): implementación y singleton `storageService`. Incluye también métodos usados por las pantallas que aún no están declarados en el contrato común.
+- [useStorage.ts](../src/hooks/useStorage.ts): acceso tipado al contrato.
+
+**Excepciones heredadas:** las pantallas de chat acceden directamente a `conversations`; `WelcomeScreen` consulta tablas para contar registros; las utilidades de backup también acceden directamente a Dexie. La migración a una persistencia remota requeriría revisar estas excepciones y completar el contrato, no solo cambiar una implementación. No ampliar estas excepciones al corregir bugs ni emprender ese refactor sin necesidad.
+
+### Mantenimiento de cuidados (B026 en v1.5.0)
+
+[CareList.tsx](../src/pages/CareList.tsx) consulta el historial completo mediante el servicio. El formulario recibe `fromCareList` en el estado de navegación y vuelve a esa pantalla al guardar; los accesos desde otras pantallas conservan su retorno a la ficha del árbol.
+
+`updateCare` actualiza el registro en una transacción con sus eventos de calendario, conservando ID y fecha de creación. Los eventos de seguimiento nuevos guardan `careId` (campo opcional ya existente, sin cambio de índices ni migración Dexie).
+
+`deleteCare` elimina el cuidado y sus eventos vinculados en una transacción; conserva fotos y notas y les quita el `careId`. No modifica la foto de portada del árbol. Los recordatorios antiguos sin `careId` solo se consideran asociados si tipo, fecha y descripción coinciden con un único cuidado del árbol; se conservan los ambiguos.
+
+### Inteligencia artificial
+
+[AIService.ts](../src/services/ai/AIService.ts) define ocho operaciones:
+
+| Operación | Uso |
+|---|---|
+| `identifySpecies(imageBase64, lang?)` | Especie, nombre común, confianza y observaciones |
+| `generateSpeciesSheet(species)` | Ficha técnica |
+| `summarizeNotesForCare(notes, careType, species)` | Resumen contextual de notas |
+| `chat(messages, context)` | Chat por ejemplar |
+| `chatGeneral(messages, context)` | Chat con contexto de colección y bitácora |
+| `suggestNextCares(context)` | Contrato disponible; sin generación periódica de eventos en la UI |
+| `suggestReminder(care, context)` | Propuesta editable de recordatorio |
+| `verifyConnection(apiKey)` | Verificación de conexión |
+
+[useAI.ts](../src/hooks/useAI.ts) exporta la fábrica asíncrona `createAIService`: descifra la clave y selecciona el proveedor. Las llamadas externas viven en los proveedores de `src/services/ai/`. La pantalla de chat por ejemplar prepara diez cuidados y los prompts usan hasta siete; las notas de clase recibidas en ese contexto aún no se usan en el chat. El chat general prepara diez notas de bitácora y los prompts usan hasta cinco, abreviadas a 120 caracteres de contenido por nota.
+
+Los modelos ofrecidos se consultan en `Settings.tsx`, los defaults de onboarding y los constructores de los proveedores. No asumir vigencia de un modelo ni gratuidad por una lista histórica: comprobarlo con la documentación oficial del proveedor cuando una tarea requiera cambiar esa integración.
+
+## 4. Modelo de datos
+
+La referencia completa de campos, tipos e índices es [src/db/schema.ts](../src/db/schema.ts). Evitar duplicar aquí interfaces enteras que puedan quedar desactualizadas.
+
+| Tabla | Contenido y relaciones |
+|---|---|
+| `bonsais` | Árboles con especie, nombre común opcional, etiquetas, estado y foto principal |
+| `cares` | Cuidados por árbol, condición, descripción, detalles por tipo y recordatorio opcional |
+| `photos` | Imágenes base64 por árbol, vínculo opcional a cuidado, fecha de toma y portada |
+| `classNotes` | Especie obligatoria, ejemplar y cuidado opcionales |
+| `journalNotes` | Conocimiento general con etiquetas y fotos base64 inline opcionales |
+| `speciesSheets` | Ficha por especie, origen y contenido editable |
+| `events` | `care`, `manual-reminder`, `followup-reminder` y tipo reservado `ai-suggestion` |
+| `conversations` | Mensajes por ejemplar; el asistente general usa `bonsaiId = 'general'` |
+| `config` | Singleton `id = 1`: preferencias, clave cifrada, onboarding y último backup |
+
+La base se llama `NiwaMiriDB`. El esquema v1 crea las tablas originales; v2 agrega `journalNotes`. Los registros de dominio usan IDs string generados con UUID; la configuración usa su ID fijo. Revisar versiones Dexie e índices antes de modificar el esquema. Un campo opcional nuevo sin índice no exige por sí solo una migración, pero hay que comprobar cómo lo leerán los datos existentes.
+
+`AIConversation` no contiene título ni un catálogo de sesiones generales. El chat general actual mantiene una conversación persistida. Las fotos de la bitácora se guardan en la propia nota y no son filas de `photos`.
+
+## 5. Rutas y navegación
+
+La referencia es [App.tsx](../src/App.tsx). Las rutas siguientes son internas a `HashRouter`:
+
+| Ruta | Módulo |
+|---|---|
+| `/onboarding` | M1 Onboarding |
+| `/` | M2 Inventario |
+| `/bonsai/:id` | M3 Ficha del ejemplar |
+| `/bonsai/:id/cares` | M4 Listado completo con búsqueda, filtros, edición y eliminación |
+| `/cares/bulk` | M4 Selección de árboles, carga masiva y revisión antes de guardar |
+| `/bonsai/:id/care` y `/bonsai/:id/care/:careId` | M4 Crear/editar cuidado |
+| `/bonsai/:id/gallery` | M5 Galería |
+| `/bonsai/:id/notes` | M6 Notas de clase |
+| `/bonsai/:id/sheet` | M7 Ficha de especie |
+| `/bonsai/:id/ai` | M8 Chat por ejemplar |
+| `/calendar` | M9 Calendario |
+| `/identify` | M10 Identificar |
+| `/settings/backup` | M11 Backup |
+| `/settings` | M12 Configuración |
+| `/journal` | M13 Bitácora |
+| `/assistant` | M14 Asistente general |
+
+El guard exige `onboardingCompleted` en todas las rutas salvo onboarding. La barra inferior tiene Colección, Bitácora, Asistente y Calendario. El header comparte acceso a ajustes, estación y pendientes, con excepciones según pantalla.
+
+## 6. UI, temas y compatibilidad móvil
+
+- Los tokens vigentes están en [globals.css](../src/styles/globals.css); la configuración Tailwind está en [tailwind.config.ts](../tailwind.config.ts). No hay un archivo `tokens/colors.ts` separado.
+- Se usan Fraunces para títulos y DM Sans para cuerpo/UI. El tema por defecto es oscuro.
+- `App.tsx` aplica el tema y la clase `font-large` a `<html>`. El CSS define `--font-scale` y utilidades escaladas. Mantener el soporte al agregar controles.
+- Los textos nuevos se externalizan en `es.json` y `en.json`; todavía existen textos inline bilingües y formatos de fecha en español.
+- El header respeta `safe-area-inset-top`; los sheets deben quedar por encima de BottomNav (patrón actual: overlay 55, sheet 60). Respetar también el área segura inferior.
+- Cámara y galería usan inputs separados para evitar la limitación de cámara con `multiple` en Android.
+
+Compatibilidad, contraste, tamaño táctil y rendimiento son objetivos que requieren validación en dispositivos; los tests de almacenamiento no los certifican.
+
+## 7. Fechas, imágenes y claves
+
+### Fechas
+
+Persistir instantes como timestamps en milisegundos y usar la zona local del dispositivo para fechas de calendario. [dates.ts](../src/utils/dates.ts) define `dateStrToTs` (mediodía local), `tsToDateStr` y `localToday`. Evitar `new Date('YYYY-MM-DD')` y `toISOString().split('T')[0]` para representar el día elegido por el usuario.
+
+Cuando el flujo maneje hora, como fotos EXIF y edición de fecha/hora de galería, conservarla. [useSeason.ts](../src/hooks/useSeason.ts) calcula estaciones por mes y hemisferio, con sur como valor por defecto.
 
 ### Imágenes
-- Se comprimen antes de guardar: máximo 1200px en el lado mayor, calidad 85%
-- Se guardan como base64 en IndexedDB
-- Se incluyen en el backup ZIP
 
-### Hemisferio y estaciones
-- Configurable en M12 (norte / sur)
-- Default: hemisferio sur (Argentina)
-- Hook `useSeason()` calcula la estación actual según la fecha y el hemisferio configurado
-- Las sugerencias de IA siempre incluyen la estación en el contexto
+[images.ts](../src/utils/images.ts) concentra compresión, conversión base64/data URL y lectura EXIF. El límite habitual de galería/cuidados es 1200 px en el lado mayor, con calidad configurable; los chats usan una compresión menor. No hay un límite garantizado de bytes por imagen.
 
-### Modo de fuente grande
-- Opción en M12 (normal / grande)
-- Implementar con variable CSS `--font-scale: 1` / `--font-scale: 1.2`
-- Todos los tamaños de fuente deben usar `calc(Xrem * var(--font-scale))`
+`Photo.imageData` almacena base64 sin el prefijo de data URL; usar `base64ToDataUrl` para renderizarla. Los grupos mensuales de Galería ordenan por `takenAt` descendente, con desempate por `createdAt`. Sin EXIF, Galería usa el día actual a mediodía local; CareForm usa el instante de subida. Conservar esa distinción al investigar problemas de fechas y orden.
 
----
+### Claves
 
-## 10. Design system — componentes clave
+Cada usuario aporta su clave; no hay proxy. Se persiste en `config.encryptedApiKey` mediante AES-GCM, implementado en [crypto.ts](../src/utils/crypto.ts), y se descifra para llamar al proveedor. La derivación actual usa constantes de la aplicación, no una contraseña del usuario; no documentarla como una clave secreta exclusiva del dispositivo. La clave se envía al proveedor seleccionado, nunca a un servidor propio.
 
-### LogoSVG
-Círculo verde con árbol Bonsai en contorno claro (sin relleno). Disponible como componente React con prop `size`. Ver archivo `src/components/logo/LogoSVG.tsx`.
+## 8. Backup y restauración
 
-### BonsaiCard
-- Foto arriba (gradient fallback si no hay foto)
-- Datos abajo: nombre (Fraunces), especie (itálica), edad calculada, último cuidado
-- Badge de especie sobre la foto (top-right)
-- Alerta visual (círculo naranja, top-left) si hay cuidados pendientes
-- Border-radius: 20px
+La implementación está en [backup.ts](../src/utils/backup.ts) y la UI en [Backup.tsx](../src/pages/Backup.tsx).
 
-### EventCard (Calendario)
-- Franja de color lateral (4px) según tipo de evento
-- Verde: cuidado registrado
-- Dorado: recordatorio manual
-- Violeta: sugerencia IA
-- Naranja: recordatorio de seguimiento / alerta
+- Backup completo: ZIP con `data.json` (formato v2), metadata de fotos y `photos/<id>.jpg`. Incluye bitácora, conversaciones y configuración; las fotos inline de bitácora permanecen en el JSON.
+- Backup por ejemplar: formato v1, árbol, cuidados, fotos, notas vinculadas al ejemplar, ficha de especie y eventos. No incluye conversaciones, configuración ni bitácora general.
+- `replace`: limpia las colecciones de dominio e importa; la configuración se actualiza si el archivo la incluye.
+- `merge`: conserva los registros no presentes en el backup y usa `bulkPut` para agregar o sobrescribir por ID. No hay conciliación por contenido ni por fecha de modificación.
+- La importación comprueba que exista `data.json`, parsea el JSON y escribe dentro de una transacción. No hay validación exhaustiva del esquema del archivo ni un resumen previo de registros.
+- En móvil, exportar intenta Web Share con MIME `application/octet-stream`, con fallback a descarga. Cancelar el selector no marca una exportación exitosa.
 
-### AIPanel
-- Panel expandible dentro de M4
-- Header con badge "IA" y título "Notas de clase relevantes"
-- Body con resumen generado, texto en color secundario
-- Nunca bloquea el formulario
+El backup completo contiene configuración, incluida la API key cifrada si existe. Usar datos de prueba para verificar importaciones y no versionar archivos personales.
 
----
+## 9. PWA y publicación
 
-## 11. Configuración PWA
+[vite.config.ts](../vite.config.ts) fija `base`, `start_url` y `scope` en `/niwamiri-bonsai/`. El manifest usa íconos de 192 y 512 px, modo standalone y orientación portrait. Workbox genera el service worker con `registerType: 'autoUpdate'`, precache de assets y caché de fuentes de Google.
 
-```ts
-// vite.config.ts — sección PWA
-VitePWA({
-  registerType: 'autoUpdate',
-  manifest: {
-    name: 'NiwaMirî',
-    short_name: 'NiwaMirî',
-    description: 'Gestión de colecciones Bonsai con IA',
-    theme_color: '#0e1a13',
-    background_color: '#0e1a13',
-    display: 'standalone',
-    orientation: 'portrait',
-    start_url: '/',
-    icons: [
-      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
-  },
-  workbox: {
-    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-    runtimeCaching: [
-      {
-        urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-        handler: 'CacheFirst',
-        options: { cacheName: 'google-fonts', expiration: { maxAgeSeconds: 60 * 60 * 24 * 365 } },
-      },
-    ],
-  },
-})
-```
+La colección, cuidados y datos ya guardados pueden usarse offline después de la carga inicial. Las operaciones de IA requieren conexión. No hay implementación de suscripción Web Push: el toggle de configuración solo persiste una preferencia.
 
----
+El procedimiento de publicación y las limitaciones actuales de CI están en [DEVELOPMENT.md](DEVELOPMENT.md). El build genera `dist/` y el workflow publica en GitHub Pages desde `main`.
 
-## 12. Contexto del proyecto
+## Cuidados masivos, filtros y detalles (F033–F035)
 
-- **Autor:** Ingeniero en sistemas, Entre Ríos, Argentina
-- **Hobby:** Cultivo de Bonsai, estudiante de clases formales
-- **Usuarios:** El autor + compañeros de clase (~10 personas)
-- **Distribución:** URL estática (GitHub Pages / Netlify) — cada usuario instala la PWA en su teléfono
-- **Modelo de datos:** Local primero (IndexedDB). Diseñado para migración futura a Supabase sin cambios en UI
-- **IA:** Multi-proveedor (Gemini recomendado por tier gratuito). Cada usuario configura su propia API key
-- **Idiomas:** Español (default) / Inglés
-- **Hemisferio default:** Sur (Argentina)
-- **Tema default:** Oscuro
+Incluidos en v1.5.0 (2026-10-27), `en revisión`. El alcance y los criterios de aceptación aprobados se definen en [M4 de FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md#m4--registro-de-cuidados).
 
----
+- [CareFields.tsx](../src/components/care/CareFields.tsx) comparte tipo/fecha, condición/observaciones, detalles y recordatorio entre los flujos individual y masivo. Usa los tokens, temas, traducciones es/en y controles del proyecto.
+- [careDetails.ts](../src/types/careDetails.ts) define los datos conocidos de cada `CareType`. [careDetails.ts (utilidades)](../src/utils/careDetails.ts) contiene el catálogo fijo de campos, validación, normalización de decimales y resúmenes. Se guardan en el `Care.specificFields` opcional existente, conservando campos desconocidos cuando el tipo no cambia. No se modificaron tablas ni índices Dexie.
+- [BulkCareForm.tsx](../src/pages/BulkCareForm.tsx), en `/cares/bulk`, mantiene selección y borradores en memoria hasta confirmar. [bulkCare.ts](../src/utils/bulkCare.ts) comparte las reglas de selección y herencia de valores. Incluye los modos común e individual y protege el envío con un bloqueo inmediato además del estado de guardado.
+- `StorageService.saveBulkCares` valida datos y destinatarios, elimina IDs repetidos y guarda cuidados y eventos en una transacción que incluye `bonsais`, `cares` y `events`. Un error revierte todo el conjunto. Cada cuidado tiene ID propio y el seguimiento incluye su `careId`; la edición y eliminación posteriores usan las operaciones de B026.
+- `StorageService.getCareProducts` obtiene nombres usados anteriormente, sin catálogo adicional ni dosis precargadas. La relación de fotos se consulta mediante `getPhotosByBonsai`.
+- [CareList.tsx](../src/pages/CareList.tsx) conserva búsqueda y filtros en los parámetros de la ruta (`q`, `type`, `period`, `from`, `to`, `photos`). [careFilters.ts](../src/utils/careFilters.ts) combina filtros en memoria y calcula períodos por días locales completos. La presencia de fotos se determina por `careId`. Un aviso de retorno por entrada de navegación usa `sessionStorage`; no contiene datos del cuidado ni modifica IndexedDB.
+- Los backups completos e individuales conservan `specificFields` sin transformar su contenido. Los tests verifican exportación/restauración, archivos antiguos sin detalles y campos desconocidos.
+- La fecha de revisión de alambrado puede copiarse al seguimiento manual mediante una acción explícita. La carga masiva no realiza consultas de IA ni genera recordatorios adicionales ocultos.
 
-*SPEC.md — NiwaMirî v1.0 — Documento vivo, actualizar al tomar decisiones nuevas durante el desarrollo*
+Las pruebas unitarias y de integración se encuentran en `src/test/care-details.test.ts`, `src/test/bulk-care.test.tsx`, `src/test/care-history.test.tsx`, `src/test/care-backup.test.ts` y `src/test/storage.test.ts`. Las pruebas usando la aplicación quedan a cargo del usuario.
+
+## 10. Historia y estado de mantenimiento
+
+Las seis fases iniciales (base, almacenamiento, navegación, IA, i18n y pantallas) dieron lugar a la aplicación publicada; no constituyen una lista de trabajo pendiente. Se incorporaron después M13/M14 y las mejoras de las versiones 1.1–1.4.
+
+La existencia de todos los módulos no significa que cada requisito del diseño inicial se haya implementado o validado. Los alcances pendientes están identificados en [FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md); los bugs y su validación siguen en [BACKLOG.md](BACKLOG.md). El estado fechado de tests, build y lint se conserva en [DEVELOPMENT.md](DEVELOPMENT.md), no como afirmación permanente de que todo pasa.

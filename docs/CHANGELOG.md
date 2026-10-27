@@ -1,5 +1,34 @@
 # NiwaMirî — Changelog
 
+## v1.5.0 — 2026-10-27
+
+### Documentación
+
+- Diseño aprobado de F033–F035 integrado en M4 de la especificación funcional; implementación y decisiones técnicas documentadas en SPEC.
+
+- Guía compartida de desarrollo y mantenimiento, con reglas para agentes y entrada para Claude Code.
+- README y especificaciones actualizados al versión 1.5.0, distinguiendo funciones disponibles y requisitos previstos.
+- Verificaciones y publicación documentadas. Se conserva el seguimiento existente de bugs, sin cambios de estructura ni de estado.
+
+### Cuidados — funcionalidades en revisión
+
+- **F033:** registro en varios árboles desde Colección, con estado y observaciones comunes o por árbol, revisión previa y guardado transaccional de cuidados/eventos. Ante errores se conserva el borrador y se revierte la carga completa.
+- **F034:** filtros del historial por tipos, fechas locales y fotos vinculadas, combinados con búsqueda de producto y detalles; se conservan al editar y volver.
+- **F035:** detalles opcionales para los 14 tipos, con productos usados anteriormente, dosis y unidades, varios calibres de alambre, resúmenes y edición. Se conserva la compatibilidad de registros y backups anteriores.
+- Incluidas en v1.5.0; pendientes de validación del usuario en la aplicación. Las comprobaciones del agente se limitan a código.
+
+### Validación de código
+
+- 84 tests unitarios y de integración pasan; incluye comprobaciones de fechas con cambio de horario. Build de producción correcto, con advertencias previas de bundle/imports/Browserslist.
+- Lint conserva 15 errores y 7 advertencias preexistentes; sin problemas nuevos.
+- B026 y F033–F035 permanecen `en revisión` hasta la confirmación del usuario.
+
+### Correcciones
+
+- **B026 — Historial de cuidados:** «Ver todos» abre una pantalla con todos los cuidados, búsqueda, edición, eliminación con confirmación y alta desde el botón «+». El acceso también está disponible con cinco cuidados o menos.
+- Editar conserva el ID del cuidado, sus fotos y notas vinculadas, y actualiza los eventos de calendario. Eliminar quita los eventos vinculados y conserva fotos y notas del árbol sin referencias huérfanas.
+- Revisados los accesos a galería, notas de clase, ficha técnica y eventos del día: sus vistas completas muestran los elementos que no aparecen en el resumen.
+
 ---
 
 ## v1.4.0 — 2026-04-14
