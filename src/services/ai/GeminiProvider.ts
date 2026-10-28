@@ -1,4 +1,11 @@
-import type { AIService, AIMessage, BonsaiContext, GeneralContext } from './AIService'
+import { buildReminderPrompt, individualReminderRequest, parseReminder } from './reminderPrompt'
+import type {
+  AIService,
+  AIMessage,
+  BonsaiContext,
+  GeneralContext,
+  ReminderRequest,
+} from './AIService'
 import type { ClassNote, CareType, Care } from '../../db/schema'
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
@@ -38,9 +45,10 @@ export class GeminiProvider implements AIService {
   }
 
   async identifySpecies(imageBase64: string, lang = 'es') {
-    const langInstruction = lang === 'es'
-      ? 'Respond in Spanish (except the species scientific name, which must stay in Latin).'
-      : 'Respond in English.'
+    const langInstruction =
+      lang === 'es'
+        ? 'Respond in Spanish (except the species scientific name, which must stay in Latin).'
+        : 'Respond in English.'
     const prompt = `You are a bonsai expert. Identify the plant species in this image. ${langInstruction}
 Respond ONLY in JSON format: {"species": "scientific latin name", "commonName": "most common local name", "confidence": "high|medium|low", "notes": "..."}`
     const text = await this.generateContent(prompt, imageBase64)
@@ -67,11 +75,15 @@ Respond ONLY in JSON with these keys (in Spanish): origen, clima, luz, riego, fe
   }
 
   async chat(messages: AIMessage[], context: BonsaiContext): Promise<string> {
-    const recentCaresSummary = context.recentCares.slice(0, 7).map((c) => {
-      const date = new Date(c.date).toLocaleDateString('es-AR')
-      const desc = c.description ? ` — "${c.description}"` : ''
-      return `• ${date}: ${c.type} (${c.treeCondition})${desc}`
-    }).join('\n') || 'ninguno registrado'
+    const recentCaresSummary =
+      context.recentCares
+        .slice(0, 7)
+        .map((c) => {
+          const date = new Date(c.date).toLocaleDateString('es-AR')
+          const desc = c.description ? ` — "${c.description}"` : ''
+          return `• ${date}: ${c.type} (${c.treeCondition})${desc}`
+        })
+        .join('\n') || 'ninguno registrado'
     const systemPrompt = `You are NiwaMirî, an expert bonsai assistant.
 Contexto actual:
 - Árbol: ${context.bonsai.name} (${context.bonsai.species})
@@ -113,12 +125,15 @@ Responde siempre en español. Sé útil y conciso. Cuando sea relevante, conside
   }
 
   async chatGeneral(messages: AIMessage[], context: GeneralContext): Promise<string> {
-    const treeList = context.bonsais
-      .map((b) => `${b.name} (${b.commonName ?? b.species}, ${b.status})`)
-      .join(', ') || 'ninguno'
-    const notesSummary = context.recentJournalNotes.slice(0, 5)
-      .map((n) => `- ${n.title ? n.title + ': ' : ''}${n.content.slice(0, 120)}`)
-      .join('\n') || 'ninguna'
+    const treeList =
+      context.bonsais
+        .map((b) => `${b.name} (${b.commonName ?? b.species}, ${b.status})`)
+        .join(', ') || 'ninguno'
+    const notesSummary =
+      context.recentJournalNotes
+        .slice(0, 5)
+        .map((n) => `- ${n.title ? n.title + ': ' : ''}${n.content.slice(0, 120)}`)
+        .join('\n') || 'ninguna'
 
     const systemPrompt = `Sos NiwaMirî, asistente experto en bonsái con acceso a la colección completa del usuario.
 Colección (${context.bonsais.length} árboles): ${treeList}
@@ -128,7 +143,10 @@ Respondé en español. Sé conciso y útil.`
 
     const contents = [
       { role: 'user', parts: [{ text: systemPrompt }] },
-      { role: 'model', parts: [{ text: 'Entendido. Tengo el contexto de tu colección. ¿En qué te puedo ayudar?' }] },
+      {
+        role: 'model',
+        parts: [{ text: 'Entendido. Tengo el contexto de tu colección. ¿En qué te puedo ayudar?' }],
+      },
       ...messages.map((m) => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [
@@ -161,7 +179,12 @@ Respondé en español. Sé conciso y útil.`
 - Species: ${context.bonsai.species}
 - Current status: ${context.bonsai.status}
 - Season: ${context.season}
-- Last cares: ${context.recentCares.slice(0, 5).map((c) => `${c.type} (${new Date(c.date).toLocaleDateString()})`).join(', ') || 'none'}
+- Last cares: ${
+      context.recentCares
+        .slice(0, 5)
+        .map((c) => `${c.type} (${new Date(c.date).toLocaleDateString()})`)
+        .join(', ') || 'none'
+    }
 
 Respond ONLY in JSON array: [{"careType": "...", "suggestedDate": <unix_timestamp_ms>, "reason": "..."}]
 Use valid careType values: watering, fertilizing, maintenance-pruning, structural-pruning, wiring, wire-removal, repotting, root-pruning, defoliation, pest-treatment, jin-shari, relocation, observation, other`
@@ -170,25 +193,18 @@ Use valid careType values: watering, fertilizing, maintenance-pruning, structura
     return JSON.parse(text.replace(/```json\n?|\n?```/g, ''))
   }
 
-  async suggestReminder(care: Care, context: BonsaiContext) {
-    const prompt = `A bonsai care was just registered:
-- Type: ${care.type}
-- Tree: ${context.bonsai.species}
-- Season: ${context.season}
-- Date: ${new Date(care.date).toLocaleDateString()}
+  async suggestReminder(care: Care, context: BonsaiContext, language = 'es') {
+    return this.suggestBulkReminder(individualReminderRequest(care, context, language))
+  }
 
-Suggest a follow-up reminder. Respond ONLY in JSON: {"date": <unix_timestamp_ms>, "description": "..."}
-The description should be in Spanish and concise.`
-
-    const text = await this.generateContent(prompt)
-    return JSON.parse(text.replace(/```json\n?|\n?```/g, ''))
+  async suggestBulkReminder(request: ReminderRequest) {
+    const text = await this.generateContent(buildReminderPrompt(request))
+    return parseReminder(text, request.date)
   }
 
   async verifyConnection(apiKey: string): Promise<boolean> {
     try {
-      const res = await fetch(
-        `${GEMINI_API_BASE}/models?key=${apiKey}`
-      )
+      const res = await fetch(`${GEMINI_API_BASE}/models?key=${apiKey}`)
       return res.ok
     } catch {
       return false

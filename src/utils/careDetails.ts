@@ -71,7 +71,7 @@ export const DETAIL_FIELDS = {
     dose,
     { key: 'method', options: ['substrate', 'foliar', 'irrigation', 'other'] },
     { key: 'npk' },
-    { key: 'amount', kind: 'number', unit: 'amountUnit', units: ['ml/tree', 'g/tree'] },
+    { key: 'amount', kind: 'number', unit: 'amountUnit', units: ['ml/tree', 'L/tree'] },
   ],
   'maintenance-pruning': [
     zone,

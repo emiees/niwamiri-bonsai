@@ -41,7 +41,9 @@ La gestión de la colección funciona **offline después de la carga inicial**: 
 | [BACKLOG.md](docs/BACKLOG.md) | Historial de features, fixes y mejoras |
 | [CHANGELOG.md](docs/CHANGELOG.md) | Cambios publicados por versión |
 
-Las mejoras de Cuidados F033–F035 (carga masiva, filtros y detalles por tipo) se incluyen en v1.5.0 y siguen en revisión; su alcance está en M4 de la especificación funcional.
+Las mejoras de Cuidados F033–F035 (carga masiva, filtros y detalles por tipo) se incluyen en v1.5.0 y fueron validadas por el usuario el 2026-10-28; su alcance está en M4 de la especificación funcional.
+
+La versión **1.6.0** incorpora ajustes de cuidados y recordatorios masivos, fallecidos ocultos por defecto con opción en filtros y novedades por versión. Estos cambios están `en revisión`, pendientes de la prueba del usuario.
 
 El proyecto está en mantenimiento. Para corregir un bug, empezar por la guía de desarrollo y conservar el seguimiento existente. La documentación técnica distingue la implementación actual de las funciones previstas.
 

@@ -1,4 +1,14 @@
 {
+  "releaseNotes": {
+    "title": "Novedades de esta versión",
+    "continue": "Continuar",
+    "bullets": [
+      "Árboles fallecidos ocultos por defecto, con opción para mostrarlos desde filtros.",
+      "Cuidados de fertilización con dosis opcional y selectores de unidades.",
+      "Recordatorios sugeridos desde cuidados masivos con sugerencias de IA y opción para quitarlos.",
+      "Corrección de errores."
+    ]
+  },
   "nav": {
     "inventory": "Colección",
     "journal": "Bitácora",
@@ -91,7 +101,11 @@
     "addFirst": "Agregá tu primer bonsai",
     "addNew": "Nuevo bonsai",
     "filterAll": "Todos",
-    "pendingCares": "Cuidados pendientes"
+    "pendingCares": "Cuidados pendientes",
+    "showDeceased": "Mostrar árboles fallecidos",
+    "advancedFilters": "Filtros avanzados",
+    "openFilters": "Abrir filtros",
+    "deceasedHidden": "Los árboles fallecidos están ocultos. Podés mostrarlos desde los filtros."
   },
   "bonsaiDetail": {
     "sections": {
@@ -234,16 +248,16 @@
   },
   "careDetails": {
     "title": "Detalles del cuidado",
-    "optional": "Opcionales. Registrá lo realizado y usá la unidad del producto.",
+    "optional": "Todos los detalles son opcionales. Completá solo lo que quieras registrar.",
     "fields": {
       "method": "Método",
       "volume": "Volumen por árbol",
       "drainage": "Drenaje observado",
       "product": "Producto",
       "presentation": "Presentación",
-      "dose": "Dosis",
+      "dose": "Dosis de producto",
       "npk": "NPK de la etiqueta",
-      "amount": "Cantidad aplicada por árbol",
+      "amount": "Cantidad de preparado aplicada por árbol",
       "zone": "Zona trabajada",
       "goal": "Objetivo",
       "intensity": "Intensidad",
@@ -302,7 +316,8 @@
       "days": "días",
       "weeks": "semanas",
       "months": "meses",
-      "years": "años"
+      "years": "años",
+      "L/tree": "L/árbol"
     },
     "unit": "Unidad",
     "unitFor": "Unidad de {{field}}",
@@ -318,7 +333,18 @@
     "reminderDate": "Fecha del recordatorio",
     "reminderDescription": "Descripción del recordatorio",
     "useReviewDate": "Crear seguimiento en la fecha de revisión del alambre",
-    "reviewReminder": "Revisar el alambrado"
+    "reviewReminder": "Revisar el alambrado",
+    "selectUnit": "Elegir unidad",
+    "otherUnit": "Otra unidad",
+    "customUnitFor": "Unidad personalizada de {{field}}",
+    "doseHelp": "Podés guardar solo el producto. Si cargás dosis, elegí su unidad: por litro para preparar una mezcla, o por árbol para aplicación directa.",
+    "addAmount": "Agregar volumen aplicado por árbol (opcional)",
+    "removeAmount": "Quitar cantidad aplicada",
+    "clearReminder": "Quitar recordatorio",
+    "aiUnavailable": "Configurá tu clave de IA en Ajustes para pedir una sugerencia.",
+    "suggestionError": "No se pudo obtener una sugerencia. Revisá la fecha, los detalles y el estado de los árboles; podés reintentar o completar el recordatorio manualmente.",
+    "incompleteReminder": "Completá una fecha válida y una descripción, o quitá el recordatorio para guardar sin seguimiento.",
+    "bulkReminderScope": "Recordatorio común para {{count}} árboles. La sugerencia es editable y se aplica a todos al guardar."
   },
   "bulkCare": {
     "title": "Registrar cuidados",
@@ -342,7 +368,7 @@
     "pendingCondition": "Estado pendiente",
     "replaceIndividual": "Hay diferencias entre árboles. Volver al modo común reemplaza esos ajustes. ¿Continuar?",
     "conditionsMissing": "Elegí el estado de: {{names}}.",
-    "photosLater": "Las fotos se pueden agregar después desde cada cuidado. El seguimiento es manual.",
+    "photosLater": "Las fotos se pueden agregar después desde cada cuidado.",
     "review": "Revisar cuidados",
     "backToEdit": "Volver a editar",
     "save": "Guardar en {{count}} árboles",

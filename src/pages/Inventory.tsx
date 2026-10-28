@@ -5,6 +5,7 @@ import { LayoutGrid, List, Plus, X, TreePine, Sparkles, BookOpen, SlidersHorizon
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
 import BonsaiCard from '@/components/bonsai/BonsaiCard'
+import CheckboxRow from '@/components/ui/CheckboxRow'
 import { RangeSlider } from '@/components/ui/RangeSlider'
 import { useBonsaiStore } from '@/store/bonsaiStore'
 import { storageService } from '@/services/storage/DexieStorageService'
@@ -32,6 +33,7 @@ const ALL_STATUSES: BonsaiStatus[] = ['developing', 'maintenance', 'recovery', '
 // ── Filtros avanzados (F031) ─────────────────────────────────────
 
 type AdvancedFilters = {
+  includeDead: boolean
   statuses: BonsaiStatus[]
   styles: BonsaiStyle[]
   sizes: BonsaiSize[]
@@ -42,6 +44,7 @@ type AdvancedFilters = {
 }
 
 const EMPTY_ADVANCED_FILTERS: AdvancedFilters = {
+  includeDead: false,
   statuses: [],
   styles: [],
   sizes: [],
@@ -83,6 +86,7 @@ function AdvancedFiltersSheet({
     <>
       <div className="fixed inset-0 z-[55] bg-black/50" onClick={onClose} />
       <div
+        role="dialog" aria-modal="true" aria-labelledby="inventory-filters-title"
         className="fixed bottom-0 left-0 right-0 z-[60] flex flex-col rounded-t-3xl"
         style={{ background: 'var(--bg)', maxHeight: '85dvh' }}
       >
@@ -93,16 +97,19 @@ function AdvancedFiltersSheet({
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 pb-3">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text1)' }}>
+          <h2 id="inventory-filters-title" className="text-base font-semibold" style={{ color: 'var(--text1)' }}>
             {lang === 'es' ? 'Filtros avanzados' : 'Advanced filters'}
           </h2>
-          <button onClick={onClose} className="rounded-full p-1.5" style={{ background: 'var(--bg3)' }}>
+          <button aria-label={t('common.close')} onClick={onClose} className="rounded-full p-1.5" style={{ background: 'var(--bg3)' }}>
             <X size={16} style={{ color: 'var(--text2)' }} />
           </button>
         </div>
 
         {/* Contenido scrolleable */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 flex flex-col gap-5">
+          <CheckboxRow label={t('inventory.showDeceased')} checked={local.includeDead}
+            onChange={(includeDead) => setLocal((current) => ({ ...current, includeDead,
+              statuses: includeDead ? current.statuses : current.statuses.filter((status) => status !== 'dead') }))} />
           {/* Estado */}
           <div>
             <label className="mb-2 block text-xs font-medium" style={{ color: 'var(--text3)' }}>
@@ -112,7 +119,11 @@ function AdvancedFiltersSheet({
               {statusOptions.map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => setLocal((l) => ({ ...l, statuses: toggle(l.statuses, opt.value) }))}
+                  aria-pressed={local.statuses.includes(opt.value)}
+                  onClick={() => setLocal((current) => {
+                    const statuses = toggle(current.statuses, opt.value)
+                    return { ...current, statuses, includeDead: current.includeDead || statuses.includes('dead') }
+                  })}
                   className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium"
                   style={{
                     background: local.statuses.includes(opt.value) ? 'var(--color-accent)' : 'var(--card)',
@@ -667,7 +678,7 @@ export default function Inventory() {
 
   // F031: cantidad de grupos de filtros avanzados activos (para el badge)
   const activeAdvancedCount =
-    (advancedFilters.statuses.length > 0 ? 1 : 0) +
+    (advancedFilters.statuses.length > 0 || advancedFilters.includeDead ? 1 : 0) +
     (advancedFilters.styles.length > 0 ? 1 : 0) +
     (advancedFilters.sizes.length > 0 ? 1 : 0) +
     (advancedFilters.ageFrom || advancedFilters.ageTo ? 1 : 0) +
@@ -679,7 +690,7 @@ export default function Inventory() {
 
   const filtered = useMemo(() => {
     // 1. Filtros avanzados — definen el subconjunto base
-    let list = bonsais
+    let list = advancedFilters.includeDead ? bonsais : bonsais.filter((bonsai) => bonsai.status !== 'dead')
     if (advancedFilters.statuses.length > 0)
       list = list.filter((b) => advancedFilters.statuses.includes(b.status))
     if (advancedFilters.styles.length > 0)
@@ -758,16 +769,16 @@ export default function Inventory() {
           style={{ background: 'var(--card)', color: 'var(--text1)', border: '1px solid var(--border)' }}
         />
         <button
-          onClick={activeAdvancedCount > 0 ? clearAdvancedFilters : () => setShowAdvancedFilters(true)}
+          onClick={() => setShowAdvancedFilters(true)}
           className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
           style={{
             background: activeAdvancedCount > 0 ? 'var(--color-accent)' : 'var(--card)',
             color: activeAdvancedCount > 0 ? 'var(--green1)' : 'var(--text2)',
             border: '1px solid var(--border)',
           }}
-          aria-label={activeAdvancedCount > 0 ? (lang === 'es' ? 'Limpiar filtros' : 'Clear filters') : (lang === 'es' ? 'Filtros avanzados' : 'Advanced filters')}
+          aria-label={t('inventory.advancedFilters')}
         >
-          {activeAdvancedCount > 0 ? <X size={18} /> : <SlidersHorizontal size={18} />}
+          <SlidersHorizontal size={18} />
           {activeAdvancedCount > 0 && (
             <span
               className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold"
@@ -849,6 +860,10 @@ export default function Inventory() {
           <p className="text-sm" style={{ color: 'var(--text3)' }}>
             {bonsais.length === 0 ? t('inventory.empty') : t('common.noResults')}
           </p>
+          {bonsais.length > 0 && <>
+            {!advancedFilters.includeDead && bonsais.some((tree) => tree.status === 'dead') && <p className="text-center text-xs px-4" style={{ color: 'var(--text3)' }}>{t('inventory.deceasedHidden')}</p>}
+            <button onClick={() => setShowAdvancedFilters(true)} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}>{t('inventory.openFilters')}</button>
+          </>}
           {bonsais.length === 0 && (
             <button
               onClick={() => setShowAdd(true)}

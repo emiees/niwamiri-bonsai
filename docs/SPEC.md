@@ -1,9 +1,9 @@
 # NiwaMirî — Especificación Técnica
 
-> Referencia de implementación: aplicación 1.5.0. Revisión documental: 2026-10-27.
+> Referencia de implementación: aplicación 1.6.0. Revisión documental: 2026-10-28.
 > PWA de gestión de colecciones de bonsáis con IA, sin backend propio.
 
-**B026 en v1.5.0, en revisión:** nueva pantalla de historial de cuidados y actualización de sus relaciones, pendientes de validación del usuario.
+**B026 en v1.5.0, resuelto:** historial completo y relaciones de cuidados confirmados por el usuario el 2026-10-28.
 
 El proceso de desarrollo está en [DEVELOPMENT.md](DEVELOPMENT.md) y las instrucciones para agentes en [AGENTS.md](../AGENTS.md). El alcance funcional se consulta en [FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md).
 
@@ -98,7 +98,7 @@ DexieStorageService / GeminiProvider / OpenAIProvider / ClaudeProvider
 
 ### Inteligencia artificial
 
-[AIService.ts](../src/services/ai/AIService.ts) define ocho operaciones:
+[AIService.ts](../src/services/ai/AIService.ts) define nueve operaciones:
 
 | Operación | Uso |
 |---|---|
@@ -108,7 +108,8 @@ DexieStorageService / GeminiProvider / OpenAIProvider / ClaudeProvider
 | `chat(messages, context)` | Chat por ejemplar |
 | `chatGeneral(messages, context)` | Chat con contexto de colección y bitácora |
 | `suggestNextCares(context)` | Contrato disponible; sin generación periódica de eventos en la UI |
-| `suggestReminder(care, context)` | Propuesta editable de recordatorio |
+| `suggestReminder(care, context, language?)` | Propuesta editable de recordatorio individual |
+| `suggestBulkReminder(request)` | Propuesta común para todos los destinatarios, con fecha local e idioma (F036, v1.6.0) |
 | `verifyConnection(apiKey)` | Verificación de conexión |
 
 [useAI.ts](../src/hooks/useAI.ts) exporta la fábrica asíncrona `createAIService`: descifra la clave y selecciona el proveedor. Las llamadas externas viven en los proveedores de `src/services/ai/`. La pantalla de chat por ejemplar prepara diez cuidados y los prompts usan hasta siete; las notas de clase recibidas en ese contexto aún no se usan en el chat. El chat general prepara diez notas de bitácora y los prompts usan hasta cinco, abreviadas a 120 caracteres de contenido por nota.
@@ -160,6 +161,12 @@ La referencia es [App.tsx](../src/App.tsx). Las rutas siguientes son internas a 
 
 El guard exige `onboardingCompleted` en todas las rutas salvo onboarding. La barra inferior tiene Colección, Bitácora, Asistente y Calendario. El header comparte acceso a ajustes, estación y pendientes, con excepciones según pantalla.
 
+### Inventario — visibilidad de fallecidos (F037, implementado y en revisión)
+
+Inventory mantiene `includeDead` en su estado local de filtros, inicialmente false. El listado derivado excluye `status=dead` antes de los filtros existentes cuando está desactivado; el store conserva toda la colección. El check y la selección del estado dead se sincronizan y cuentan como un único grupo del badge. Sin cambios en StorageService, tablas ni backups.
+
+Se reutiliza AdvancedFiltersSheet. [CheckboxRow.tsx](../src/components/ui/CheckboxRow.tsx) extrae la presentación del check de BulkCareForm y se usa en ambos flujos. El botón de filtros siempre abre el panel; la limpieza existente restablece el estado inicial. `src/test/inventory-visibility.test.tsx` prueba el listado y el panel con almacenamiento simulado. Incluido en v1.6.0, pendiente de confirmación del usuario.
+
 ## 6. UI, temas y compatibilidad móvil
 
 - Los tokens vigentes están en [globals.css](../src/styles/globals.css); la configuración Tailwind está en [tailwind.config.ts](../tailwind.config.ts). No hay un archivo `tokens/colors.ts` separado.
@@ -170,6 +177,14 @@ El guard exige `onboardingCompleted` en todas las rutas salvo onboarding. La bar
 - Cámara y galería usan inputs separados para evitar la limitación de cámara con `multiple` en Android.
 
 Compatibilidad, contraste, tamaño táctil y rendimiento son objetivos que requieren validación en dispositivos; los tests de almacenamiento no los certifican.
+
+### Modales de inicio y novedades (F038, implementado y en revisión)
+
+[WelcomeScreen.tsx](../src/components/WelcomeScreen.tsx) coordina los estados `news`, `welcome` y `closed`. [ReleaseNotesModal.tsx](../src/components/ReleaseNotesModal.tsx) y la bienvenida comparten [StartupModal.tsx](../src/components/StartupModal.tsx): overlay, tarjeta, cabecera, versión y acción, con foco contenido en el diálogo y desplazamiento para pantallas pequeñas. El temporizador existe solo en el paso de bienvenida.
+
+[startupNotice.ts](../src/utils/startupNotice.ts) compara `niwamiri_last_seen_version` de localStorage con `APP_VERSION`, proveniente de `package.json` a través de [appVersion.ts](../src/utils/appVersion.ts). El reconocimiento se escribe únicamente al pulsar «Continuar». La clave heredada `niwamiri_welcome_shown` de sessionStorage conserva la frecuencia habitual; novedades pendientes tienen prioridad sobre ella y fuerzan la bienvenida posterior. No hay migraciones, cambios en IndexedDB ni datos adicionales en backups. Si el navegador bloquea la persistencia, se permite completar el ingreso, pero no se garantiza recordar la lectura en la siguiente apertura.
+
+Las traducciones `releaseNotes` incluyen el resumen de v1.6.0. Se actualizan con texto aprobado por el usuario según [DEVELOPMENT.md](DEVELOPMENT.md#6-versiones-y-publicación); no se analiza el changelog en ejecución ni se consulta la red. La versión del paquete es 1.6.0.
 
 ## 7. Fechas, imágenes y claves
 
@@ -212,18 +227,28 @@ El procedimiento de publicación y las limitaciones actuales de CI están en [DE
 
 ## Cuidados masivos, filtros y detalles (F033–F035)
 
-Incluidos en v1.5.0 (2026-10-27), `en revisión`. El alcance y los criterios de aceptación aprobados se definen en [M4 de FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md#m4--registro-de-cuidados).
+Incluidos en v1.5.0 (2026-10-27), en estado `resuelto` tras la prueba y confirmación del usuario el 2026-10-28. El alcance y los criterios de aceptación aprobados se definen en [M4 de FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md#m4--registro-de-cuidados).
 
-- [CareFields.tsx](../src/components/care/CareFields.tsx) comparte tipo/fecha, condición/observaciones, detalles y recordatorio entre los flujos individual y masivo. Usa los tokens, temas, traducciones es/en y controles del proyecto.
+- [CareFields.tsx](../src/components/care/CareFields.tsx) comparte tipo/fecha, condición/observaciones y detalles entre los flujos individual y masivo. ReminderFields se usa en ambos formularios y CareSection comparte la tarjeta y el título extraídos del recordatorio individual (M015, v1.6.0). Usa los tokens, temas, traducciones es/en y controles del proyecto.
 - [careDetails.ts](../src/types/careDetails.ts) define los datos conocidos de cada `CareType`. [careDetails.ts (utilidades)](../src/utils/careDetails.ts) contiene el catálogo fijo de campos, validación, normalización de decimales y resúmenes. Se guardan en el `Care.specificFields` opcional existente, conservando campos desconocidos cuando el tipo no cambia. No se modificaron tablas ni índices Dexie.
 - [BulkCareForm.tsx](../src/pages/BulkCareForm.tsx), en `/cares/bulk`, mantiene selección y borradores en memoria hasta confirmar. [bulkCare.ts](../src/utils/bulkCare.ts) comparte las reglas de selección y herencia de valores. Incluye los modos común e individual y protege el envío con un bloqueo inmediato además del estado de guardado.
 - `StorageService.saveBulkCares` valida datos y destinatarios, elimina IDs repetidos y guarda cuidados y eventos en una transacción que incluye `bonsais`, `cares` y `events`. Un error revierte todo el conjunto. Cada cuidado tiene ID propio y el seguimiento incluye su `careId`; la edición y eliminación posteriores usan las operaciones de B026.
 - `StorageService.getCareProducts` obtiene nombres usados anteriormente, sin catálogo adicional ni dosis precargadas. La relación de fotos se consulta mediante `getPhotosByBonsai`.
 - [CareList.tsx](../src/pages/CareList.tsx) conserva búsqueda y filtros en los parámetros de la ruta (`q`, `type`, `period`, `from`, `to`, `photos`). [careFilters.ts](../src/utils/careFilters.ts) combina filtros en memoria y calcula períodos por días locales completos. La presencia de fotos se determina por `careId`. Un aviso de retorno por entrada de navegación usa `sessionStorage`; no contiene datos del cuidado ni modifica IndexedDB.
 - Los backups completos e individuales conservan `specificFields` sin transformar su contenido. Los tests verifican exportación/restauración, archivos antiguos sin detalles y campos desconocidos.
-- La fecha de revisión de alambrado puede copiarse al seguimiento manual mediante una acción explícita. La carga masiva no realiza consultas de IA ni genera recordatorios adicionales ocultos.
+- La fecha de revisión de alambrado puede copiarse al seguimiento manual mediante una acción explícita. La carga masiva permite una consulta explícita de IA común al conjunto; no genera recordatorios adicionales ocultos.
 
 Las pruebas unitarias y de integración se encuentran en `src/test/care-details.test.ts`, `src/test/bulk-care.test.tsx`, `src/test/care-history.test.tsx`, `src/test/care-backup.test.ts` y `src/test/storage.test.ts`. Las pruebas usando la aplicación quedan a cargo del usuario.
+
+### Ajustes de componentes del 2026-10-28 (v1.6.0, en revisión)
+
+- [CareSection.tsx](../src/components/care/CareSection.tsx) conserva tarjeta y título del recordatorio individual y se usa en Detalles y Recordatorio. ReminderFields en CareFields.tsx tiene una sola implementación para CareForm y BulkCareForm, con limpieza completa, altura mínima de fecha y botón de IA responsive.
+- [QuantityField.tsx](../src/components/care/QuantityField.tsx) comparte valor/unidad y reutiliza SelectRow, también usado para las demás opciones de detalles. «Otra unidad» habilita texto y recupera valores históricos sin convertirlos. El volumen adicional es desplegable para concentraciones; amount/amountUnit existentes se muestran al editar. Producto sin dose/doseUnit sigue siendo válido.
+- BulkCareForm reinicia ventana/main y enfoca el indicador sin desplazamiento en un efecto de layout por paso; no instala un reinicio global ni altera el retorno al historial.
+- [useReminderSuggestion.ts](../src/hooks/useReminderSuggestion.ts) comparte carga, error y bloqueo de solicitudes; invalida las respuestas al cambiar contexto, editar, quitar, guardar o desmontar. Las páginas mantienen los datos manuales si falla la solicitud. La clave de contexto considera selección, datos del cuidado, idioma y proveedor/modelo.
+- [reminderPrompt.ts](../src/services/ai/reminderPrompt.ts) comparte construcción y validación en los tres proveedores. El caso individual se adapta al mismo contrato con un solo árbol; el masivo incluye todos los destinatarios y sus especies/condiciones/observaciones. Cada acción genera una llamada al proveedor; no usa un árbol ficticio ni consulta por destinatario. Se valida fecha local, descripción no vacía y que no anteceda al cuidado; se conserva compatibilidad con respuestas timestamp.
+- No cambian tablas, índices, backups ni reglas transaccionales de almacenamiento. La limpieza al editar usa updateCare y sus relaciones de B026.
+- Los tests nuevos de componentes y proveedores están en `src/test/care-components.test.tsx` y `src/test/reminder-ai.test.ts`; los flujos y almacenamiento amplían sus tests existentes. Se validan respuestas tardías, fallos, producto sin dosis, limpieza y scroll/foco. Las dimensiones reales y la IA con clave real quedan para la prueba del usuario.
 
 ## 10. Historia y estado de mantenimiento
 

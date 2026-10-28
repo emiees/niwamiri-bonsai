@@ -13,6 +13,7 @@ import { encryptApiKey, decryptApiKey } from '@/utils/crypto'
 import { createAIService } from '@/hooks/useAI'
 import i18n from '@/i18n/index'
 import type { AIProvider, AppConfig } from '@/db/schema'
+import { APP_VERSION } from '@/utils/appVersion'
 
 // ── Section wrapper ────────────────────────────────────────────
 
@@ -370,7 +371,7 @@ export default function Settings() {
         {/* ── Acerca de ─────────────────────────────── */}
         <Section title="Acerca de">
           <Row>
-            <RowLabel label="Aplicación" sublabel="NiwaMirî v1.5.0" />
+            <RowLabel label="Aplicación" sublabel={`NiwaMirî v${APP_VERSION}`} />
             <a
               href="https://github.com/emiees/niwamiri-bonsai"
               target="_blank"

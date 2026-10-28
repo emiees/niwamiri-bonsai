@@ -1,4 +1,24 @@
-import type { Bonsai, Care, ClassNote, CareType } from '../../db/schema'
+import type { Bonsai, Care, ClassNote, CareType, TreeCondition } from '../../db/schema'
+
+export interface ReminderSuggestion {
+  date: number
+  description: string
+}
+export interface ReminderRequest {
+  type: CareType
+  date: number
+  specificFields?: Care['specificFields']
+  season: BonsaiContext['season']
+  language: string
+  trees: {
+    id: string
+    name: string
+    species: string
+    status: Bonsai['status']
+    condition: TreeCondition
+    description?: string
+  }[]
+}
 
 export interface AIMessage {
   role: 'user' | 'assistant'
@@ -21,7 +41,10 @@ export interface GeneralContext {
 
 export interface AIService {
   // Identificar especie por foto
-  identifySpecies(imageBase64: string, lang?: string): Promise<{
+  identifySpecies(
+    imageBase64: string,
+    lang?: string
+  ): Promise<{
     species: string
     commonName: string
     confidence: 'high' | 'medium' | 'low'
@@ -32,11 +55,7 @@ export interface AIService {
   generateSpeciesSheet(species: string): Promise<Record<string, string>>
 
   // Resumir notas de clase contextuales para un tipo de cuidado
-  summarizeNotesForCare(
-    notes: ClassNote[],
-    careType: CareType,
-    species: string
-  ): Promise<string>
+  summarizeNotesForCare(notes: ClassNote[], careType: CareType, species: string): Promise<string>
 
   // Chat libre contextualizado por ejemplar
   chat(messages: AIMessage[], context: BonsaiContext): Promise<string>
@@ -56,11 +75,15 @@ export interface AIService {
   // Sugerir recordatorio para un cuidado recién registrado
   suggestReminder(
     care: Care,
-    context: BonsaiContext
+    context: BonsaiContext,
+    language?: string
   ): Promise<{
     date: number
     description: string
   }>
+
+  // Una sugerencia común explícita para todos los destinatarios de la carga.
+  suggestBulkReminder(request: ReminderRequest): Promise<ReminderSuggestion>
 
   // Verificar que la API key es válida
   verifyConnection(apiKey: string): Promise<boolean>

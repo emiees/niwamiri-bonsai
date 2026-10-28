@@ -6,6 +6,10 @@ import BulkCareForm from '../pages/BulkCareForm'
 import { useBonsaiStore } from '../store/bonsaiStore'
 import { storageService } from '../services/storage/DexieStorageService'
 import i18n from '../i18n'
+import * as aiFactory from '../hooks/useAI'
+import { useAppStore } from '../store/appStore'
+import type { AIService } from '../services/ai/AIService'
+import { dateStrToTs } from '../utils/dates'
 import type { Bonsai } from '../db/schema'
 
 let host: HTMLDivElement
@@ -28,7 +32,11 @@ afterAll(() => {
 })
 beforeEach(async () => {
   await i18n.changeLanguage('es')
+  useAppStore.setState((state) => ({
+    config: state.config ? { ...state.config, encryptedApiKey: undefined } : null,
+  }))
   useBonsaiStore.setState({ bonsais: trees, loading: false })
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
   vi.spyOn(storageService, 'getBonsaiList').mockResolvedValue(trees)
   vi.spyOn(storageService, 'getCareProducts').mockResolvedValue(['Producto anterior'])
   vi.spyOn(storageService, 'getEventsByDateRange').mockResolvedValue([])
@@ -111,24 +119,22 @@ describe('F033 — flujo masivo', () => {
     expect(storageService.saveBulkCares).not.toHaveBeenCalled()
     await click(button('Bien'))
     await fill(field('Producto'), 'Abono común')
-    await fill(field('Dosis'), '2,5')
-    await fill(host.querySelector('[aria-label="Unidad de Dosis"]')!, 'ml/L')
+    await fill(field('Dosis de producto'), '2,5')
+    await select(field('Unidad de Dosis de producto') as unknown as HTMLSelectElement, 'ml/L')
     await fill(host.querySelector('textarea')!, 'Mismo cuidado')
     await click(button('Revisar cuidados'))
-    expect(host.textContent).toContain('Dosis: 2.5 ml/L')
+    expect(host.textContent).toContain('Dosis de producto: 2.5 ml/L')
     expect(storageService.saveBulkCares).not.toHaveBeenCalled()
     await click(button('Guardar en 2 árboles'))
     expect(storageService.saveBulkCares).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'fertilizing',
         specificFields: { product: 'Abono común', dose: 2.5, doseUnit: 'ml/L' },
-        recipients: trees
-          .slice(0, 2)
-          .map((tree) => ({
-            bonsaiId: tree.id,
-            treeCondition: 'good',
-            description: 'Mismo cuidado',
-          })),
+        recipients: trees.slice(0, 2).map((tree) => ({
+          bonsaiId: tree.id,
+          treeCondition: 'good',
+          description: 'Mismo cuidado',
+        })),
       })
     )
     expect(host.textContent).toBe('Colección guardada')
@@ -199,5 +205,101 @@ describe('F033 — flujo masivo', () => {
     })
     expect(storageService.saveBulkCares).toHaveBeenCalledTimes(2)
     await act(async () => finish(['a', 'b']))
+  })
+})
+
+async function select(element: HTMLSelectElement, value: string) {
+  await act(async () => {
+    element.value = value
+    element.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+}
+
+describe('B027/B029/F036 — pasos y seguimiento masivo', () => {
+  it('restablece ventana, main y foco solo al cambiar de paso', async () => {
+    const main = host.querySelector('main')!
+    main.scrollTop = 800
+    document.documentElement.scrollTop = 800
+    await start()
+    expect(main.scrollTop).toBe(0)
+    expect(document.documentElement.scrollTop).toBe(0)
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 0, left: 0, behavior: 'auto' })
+    expect(document.activeElement?.textContent).toContain('Paso 2')
+    const calls = vi.mocked(window.scrollTo).mock.calls.length
+    await fill(field('Producto'), 'Mantener')
+    expect(window.scrollTo).toHaveBeenCalledTimes(calls)
+    await click(button('Bien'))
+    main.scrollTop = 900
+    await click(button('Revisar cuidados'))
+    expect(main.scrollTop).toBe(0)
+    main.scrollTop = 900
+    await click(button('Volver a editar'))
+    expect(main.scrollTop).toBe(0)
+    expect(field('Producto').value).toBe('Mantener')
+  })
+  it('guarda solo producto por árbol, exige completar el seguimiento o quitarlo', async () => {
+    await start()
+    await click(button('Bien'))
+    await fill(field('Producto'), 'Solo producto')
+    const reminder = host.querySelectorAll<HTMLInputElement>('input[type="date"]')[1]
+    await fill(reminder, '2026-11-03')
+    await click(button('Revisar cuidados'))
+    expect(storageService.saveBulkCares).not.toHaveBeenCalled()
+    expect(host.textContent).toContain('quitá el recordatorio')
+    await click(button('Quitar recordatorio'))
+    await click(button('Revisar cuidados'))
+    await click(button('Guardar en 2 árboles'))
+    expect(storageService.saveBulkCares).toHaveBeenCalledWith(
+      expect.objectContaining({
+        specificFields: { product: 'Solo producto' },
+        followUpReminder: undefined,
+      })
+    )
+  })
+  it('pide una sola sugerencia editable para todas las especies, sin guardar hasta confirmar', async () => {
+    const suggest = vi
+      .fn()
+      .mockResolvedValue({ date: dateStrToTs('2026-11-03'), description: 'Revisar el conjunto' })
+    vi.spyOn(aiFactory, 'createAIService').mockResolvedValue({
+      suggestBulkReminder: suggest,
+    } as unknown as AIService)
+    await act(async () =>
+      useAppStore.setState((state) => ({
+        config: { ...state.config!, encryptedApiKey: 'test-config' },
+      }))
+    )
+    await click(host.querySelector('input[type="checkbox"]')!)
+    await click(button('Seleccionar visibles'))
+    await click(button('Continuar con 3 árboles'))
+    await click(button('Regular'))
+    await fill(field('Producto'), 'Abono de prueba')
+    await click(button('Sugerir con IA'))
+    expect(suggest).toHaveBeenCalledTimes(1)
+    expect(suggest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        specificFields: { product: 'Abono de prueba' },
+        trees: trees.map((tree) => ({
+          id: tree.id,
+          name: tree.name,
+          species: tree.species,
+          status: tree.status,
+          condition: 'regular',
+          description: '',
+        })),
+      })
+    )
+    expect(storageService.saveBulkCares).not.toHaveBeenCalled()
+    expect(host.textContent).toContain('Recordatorio común para 3 árboles')
+    const description = [...host.querySelectorAll('input')].find(
+      (input) => input.value === 'Revisar el conjunto'
+    )!
+    await fill(description, 'Revisar editado')
+    await click(button('Revisar cuidados'))
+    await click(button('Guardar en 3 árboles'))
+    expect(storageService.saveBulkCares).toHaveBeenCalledWith(
+      expect.objectContaining({
+        followUpReminder: { date: dateStrToTs('2026-11-03'), description: 'Revisar editado' },
+      })
+    )
   })
 })

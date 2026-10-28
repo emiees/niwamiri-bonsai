@@ -70,7 +70,7 @@ describe('Detalles de cuidados', () => {
         },
         i18n.t
       )
-    ).toContain('Dosis: 2.5 g/L')
+    ).toContain('Dosis de producto: 2.5 g/L')
     expect(
       detailSummary(
         {

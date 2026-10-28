@@ -1,4 +1,11 @@
-import type { AIService, AIMessage, BonsaiContext, GeneralContext } from './AIService'
+import { buildReminderPrompt, individualReminderRequest, parseReminder } from './reminderPrompt'
+import type {
+  AIService,
+  AIMessage,
+  BonsaiContext,
+  GeneralContext,
+  ReminderRequest,
+} from './AIService'
 import type { ClassNote, CareType, Care } from '../../db/schema'
 
 const CLAUDE_API_BASE = 'https://api.anthropic.com/v1'
@@ -37,18 +44,28 @@ export class ClaudeProvider implements AIService {
   }
 
   async identifySpecies(imageBase64: string, lang = 'es') {
-    const langInstruction = lang === 'es'
-      ? 'Respond in Spanish (except the species scientific name, which must stay in Latin).'
-      : 'Respond in English.'
-    const text = await this.complete('You are a bonsai expert. Identify plant species from images.', [
-      {
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
-          { type: 'text', text: `Identify this species. ${langInstruction} Respond ONLY in JSON: {"species":"scientific latin name","commonName":"most common local name","confidence":"high|medium|low","notes":"..."}` },
-        ],
-      },
-    ])
+    const langInstruction =
+      lang === 'es'
+        ? 'Respond in Spanish (except the species scientific name, which must stay in Latin).'
+        : 'Respond in English.'
+    const text = await this.complete(
+      'You are a bonsai expert. Identify plant species from images.',
+      [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 },
+            },
+            {
+              type: 'text',
+              text: `Identify this species. ${langInstruction} Respond ONLY in JSON: {"species":"scientific latin name","commonName":"most common local name","confidence":"high|medium|low","notes":"..."}`,
+            },
+          ],
+        },
+      ]
+    )
     return JSON.parse(text.replace(/```json\n?|\n?```/g, ''))
   }
 
@@ -78,11 +95,15 @@ export class ClaudeProvider implements AIService {
   }
 
   async chat(messages: AIMessage[], context: BonsaiContext): Promise<string> {
-    const recentCaresSummary = context.recentCares.slice(0, 7).map((c) => {
-      const date = new Date(c.date).toLocaleDateString('es-AR')
-      const desc = c.description ? ` — "${c.description}"` : ''
-      return `• ${date}: ${c.type} (${c.treeCondition})${desc}`
-    }).join('\n') || 'ninguno registrado'
+    const recentCaresSummary =
+      context.recentCares
+        .slice(0, 7)
+        .map((c) => {
+          const date = new Date(c.date).toLocaleDateString('es-AR')
+          const desc = c.description ? ` — "${c.description}"` : ''
+          return `• ${date}: ${c.type} (${c.treeCondition})${desc}`
+        })
+        .join('\n') || 'ninguno registrado'
     const system = `You are NiwaMirî, an expert bonsai assistant.
 Árbol: ${context.bonsai.name} (${context.bonsai.species}), estado: ${context.bonsai.status}, estación: ${context.season}.
 Últimos cuidados registrados:
@@ -93,7 +114,10 @@ Responde siempre en español. Cuando sea relevante, considera el historial de cu
       role: m.role,
       content: m.imageBase64
         ? [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: m.imageBase64 } },
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: 'image/jpeg', data: m.imageBase64 },
+            },
             { type: 'text', text: m.content },
           ]
         : m.content,
@@ -103,12 +127,15 @@ Responde siempre en español. Cuando sea relevante, considera el historial de cu
   }
 
   async chatGeneral(messages: AIMessage[], context: GeneralContext): Promise<string> {
-    const treeList = context.bonsais
-      .map((b) => `${b.name} (${b.commonName ?? b.species}, ${b.status})`)
-      .join(', ') || 'ninguno'
-    const notesSummary = context.recentJournalNotes.slice(0, 5)
-      .map((n) => `- ${n.title ? n.title + ': ' : ''}${n.content.slice(0, 120)}`)
-      .join('\n') || 'ninguna'
+    const treeList =
+      context.bonsais
+        .map((b) => `${b.name} (${b.commonName ?? b.species}, ${b.status})`)
+        .join(', ') || 'ninguno'
+    const notesSummary =
+      context.recentJournalNotes
+        .slice(0, 5)
+        .map((n) => `- ${n.title ? n.title + ': ' : ''}${n.content.slice(0, 120)}`)
+        .join('\n') || 'ninguna'
 
     const system = `Sos NiwaMirî, asistente experto en bonsái con acceso a la colección completa del usuario.
 Colección (${context.bonsais.length} árboles): ${treeList}
@@ -120,7 +147,10 @@ Respondé en español. Sé conciso y útil.`
       role: m.role,
       content: m.imageBase64
         ? [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: m.imageBase64 } },
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: 'image/jpeg', data: m.imageBase64 },
+            },
             { type: 'text', text: m.content },
           ]
         : m.content,
@@ -139,14 +169,15 @@ Respondé en español. Sé conciso y útil.`
     return JSON.parse(text.replace(/```json\n?|\n?```/g, ''))
   }
 
-  async suggestReminder(care: Care, context: BonsaiContext) {
+  async suggestReminder(care: Care, context: BonsaiContext, language = 'es') {
+    return this.suggestBulkReminder(individualReminderRequest(care, context, language))
+  }
+
+  async suggestBulkReminder(request: ReminderRequest) {
     const text = await this.complete('You are a bonsai expert.', [
-      {
-        role: 'user',
-        content: `Care: ${care.type} for ${context.bonsai.species} in ${context.season}. Follow-up reminder JSON: {"date":<ms>,"description":"..."}. Spanish description.`,
-      },
+      { role: 'user', content: buildReminderPrompt(request) },
     ])
-    return JSON.parse(text.replace(/```json\n?|\n?```/g, ''))
+    return parseReminder(text, request.date)
   }
 
   async verifyConnection(apiKey: string): Promise<boolean> {

@@ -31,7 +31,11 @@ NiwaMirî es una PWA personal para gestionar bonsáis, con datos locales en Inde
 - Preservar IndexedDB y la compatibilidad de los backups. Evaluar migraciones si cambia el esquema; nunca borrar datos del usuario para resolver un problema.
 - Para fechas de calendario usar `dateStrToTs`, `tsToDateStr` y `localToday` de `src/utils/dates.ts`. Preservar hora local/EXIF cuando el flujo maneje fecha y hora.
 - Usar los tokens de `src/styles/globals.css` para colores y temas. Respetar safe areas, capas de sheets y navegación móvil.
+- Antes de crear o modificar una interfaz, identificar el componente existente que resuelve la misma función y usarlo como referencia. Respetar la referencia indicada por el usuario. Si está escrito inline en una pantalla, extraerlo como componente compartido conservando su diseño y utilizarlo en todos los flujos afectados.
+- Reutilizar tanto la presentación como el comportamiento: jerarquía y formato de títulos, tipografía, espaciados, bordes, dimensiones de campos, estados vacíos, limpieza, validación, carga y errores. Compartir tokens CSS no alcanza si se mantienen implementaciones visuales o funcionales diferentes para la misma tarea.
+- No crear variantes ni copias de un componente para cada pantalla cuando la función es la misma. Exponer las diferencias necesarias mediante su contrato y mantener una única implementación. En las propuestas, indicar qué componente se reutiliza o extrae y comprobar sus consumidores con pruebas de código; la validación visual sigue a cargo del usuario.
 - Comentarios nuevos en español. Textos nuevos de UI en `src/i18n/es.json` y `src/i18n/en.json`; evitar ampliar los textos inline heredados.
+- El texto de novedades que se muestra al cambiar de versión requiere revisión y aprobación explícita del usuario antes de publicar. Usar exactamente el texto aprobado para esa entrega; no generarlo ni reemplazarlo automáticamente desde el changelog. Una aprobación ya dada sigue siendo válida mientras no cambie ese texto. Ver el procedimiento en `docs/DEVELOPMENT.md`.
 - No registrar claves de API, backups personales ni configuración local de herramientas en el repositorio.
 
 ## Verificación y entrega

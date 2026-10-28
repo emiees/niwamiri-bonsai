@@ -13,11 +13,18 @@ import { useBonsaiStore } from '../store/bonsaiStore'
 import { useCalendarStore } from '../store/calendarStore'
 import { storageService } from '../services/storage/DexieStorageService'
 import i18n from '../i18n'
+import { useAppStore } from '../store/appStore'
+import * as aiFactory from '../hooks/useAI'
+import type { AIService } from '../services/ai/AIService'
 import type { Bonsai, Care, Photo, ClassNote, SpeciesSheet as Sheet } from '../db/schema'
 
 const bonsai: Bonsai = {
-  id: 'tree', name: 'Ficus de prueba', species: 'Ficus retusa',
-  status: 'developing', createdAt: 1, updatedAt: 1,
+  id: 'tree',
+  name: 'Ficus de prueba',
+  species: 'Ficus retusa',
+  status: 'developing',
+  createdAt: 1,
+  updatedAt: 1,
 }
 let cares: Care[]
 let host: HTMLDivElement
@@ -52,18 +59,24 @@ async function render(entry = '/bonsai/tree') {
 
 function button(label: string, scope: ParentNode = host): HTMLButtonElement {
   const found = Array.from(scope.querySelectorAll('button')).find(
-    (element) => element.textContent?.trim() === label || element.getAttribute('aria-label') === label
+    (element) =>
+      element.textContent?.trim() === label || element.getAttribute('aria-label') === label
   )
   expect(found, `Botón «${label}»`).toBeDefined()
   return found!
 }
 
 async function click(element: Element) {
-  await act(async () => { element.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+  await act(async () => {
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  })
 }
 
 async function fill(element: HTMLInputElement | HTMLTextAreaElement, value: string) {
-  const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+  const prototype =
+    element instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype
   await act(async () => {
     Object.getOwnPropertyDescriptor(prototype, 'value')!.set!.call(element, value)
     element.dispatchEvent(new Event('input', { bubbles: true }))
@@ -72,29 +85,41 @@ async function fill(element: HTMLInputElement | HTMLTextAreaElement, value: stri
 
 async function openSection(key: string) {
   const title = i18n.t(`bonsaiDetail.sections.${key}`)
-  const sectionButton = Array.from(host.querySelectorAll('button')).find(
-    (element) => element.textContent?.startsWith(title)
+  const sectionButton = Array.from(host.querySelectorAll('button')).find((element) =>
+    element.textContent?.startsWith(title)
   )!
   expect(sectionButton).toBeDefined()
   await click(sectionButton)
   return sectionButton.parentElement!
 }
 
-function location() { return host.querySelector('[data-testid="location"]')?.textContent }
+function location() {
+  return host.querySelector('[data-testid="location"]')?.textContent
+}
 
-beforeAll(() => { reactGlobals.IS_REACT_ACT_ENVIRONMENT = true })
-afterAll(() => { reactGlobals.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment })
+beforeAll(() => {
+  reactGlobals.IS_REACT_ACT_ENVIRONMENT = true
+})
+afterAll(() => {
+  reactGlobals.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
+})
 
 beforeEach(async () => {
   cares = Array.from({ length: 7 }, (_, index) => ({
-    id: `care-${index}`, bonsaiId: bonsai.id, type: 'watering',
-    date: new Date(2026, 9, 20 - index, 12).getTime(), treeCondition: 'good',
-    description: `Observación ${index}`, createdAt: index,
+    id: `care-${index}`,
+    bonsaiId: bonsai.id,
+    type: 'watering',
+    date: new Date(2026, 9, 20 - index, 12).getTime(),
+    treeCondition: 'good',
+    description: `Observación ${index}`,
+    createdAt: index,
   }))
   useBonsaiStore.setState({ bonsais: [bonsai], loading: false })
   useCalendarStore.setState({ events: [] })
   vi.spyOn(storageService, 'getCareProducts').mockResolvedValue([])
-  vi.spyOn(storageService, 'getCaresByBonsai').mockImplementation(async (id) => cares.filter((care) => care.bonsaiId === id))
+  vi.spyOn(storageService, 'getCaresByBonsai').mockImplementation(async (id) =>
+    cares.filter((care) => care.bonsaiId === id)
+  )
   vi.spyOn(storageService, 'getPhotosByBonsai').mockResolvedValue([])
   vi.spyOn(storageService, 'getNotesBySpecimen').mockResolvedValue([])
   vi.spyOn(storageService, 'getNotesBySpecies').mockResolvedValue([])
@@ -102,7 +127,7 @@ beforeEach(async () => {
   vi.spyOn(storageService, 'getEventsByDateRange').mockResolvedValue([])
   vi.spyOn(storageService, 'saveEvent').mockResolvedValue('event')
   vi.spyOn(storageService, 'updateCare').mockImplementation(async (id, data) => {
-    cares = cares.map((care) => care.id === id ? { ...care, ...data } : care)
+    cares = cares.map((care) => (care.id === id ? { ...care, ...data } : care))
   })
   vi.spyOn(storageService, 'saveCare').mockImplementation(async (data) => {
     cares.push({ ...data, id: 'new-care', createdAt: 100 })
@@ -142,9 +167,14 @@ describe('B026 — historial de cuidados', () => {
     await click(button('Guardar'))
     expect(location()).toBe('/bonsai/tree/cares')
     expect(host.textContent).toContain('Cuidado antiguo actualizado')
-    expect(storageService.updateCare).toHaveBeenCalledWith('care-6', expect.objectContaining({
-      description: 'Cuidado antiguo actualizado', date: new Date(2026, 9, 1, 12).getTime(),
-    }), expect.any(String))
+    expect(storageService.updateCare).toHaveBeenCalledWith(
+      'care-6',
+      expect.objectContaining({
+        description: 'Cuidado antiguo actualizado',
+        date: new Date(2026, 9, 1, 12).getTime(),
+      }),
+      expect.any(String)
+    )
     expect(storageService.saveCare).not.toHaveBeenCalled()
     expect(storageService.deleteCare).not.toHaveBeenCalled()
   })
@@ -217,8 +247,12 @@ describe('B026 — historial de cuidados', () => {
 describe('Revisión de otras listas resumidas', () => {
   it('abre todas las fotos desde el resumen de galería', async () => {
     const photos: Photo[] = Array.from({ length: 8 }, (_, index) => ({
-      id: `photo-${index}`, bonsaiId: bonsai.id, imageData: 'dGVzdA==',
-      takenAt: index, isMainPhoto: false, createdAt: index,
+      id: `photo-${index}`,
+      bonsaiId: bonsai.id,
+      imageData: 'dGVzdA==',
+      takenAt: index,
+      isMainPhoto: false,
+      createdAt: index,
     }))
     vi.mocked(storageService.getPhotosByBonsai).mockResolvedValue(photos)
     await render()
@@ -231,8 +265,14 @@ describe('Revisión de otras listas resumidas', () => {
 
   it('abre todas las notas desde el resumen de tres', async () => {
     const notes: ClassNote[] = Array.from({ length: 4 }, (_, index) => ({
-      id: `note-${index}`, species: bonsai.species, specimenId: bonsai.id,
-      title: `Nota ${index}`, content: `Contenido ${index}`, classDate: index, createdAt: index, updatedAt: index,
+      id: `note-${index}`,
+      species: bonsai.species,
+      specimenId: bonsai.id,
+      title: `Nota ${index}`,
+      content: `Contenido ${index}`,
+      classDate: index,
+      createdAt: index,
+      updatedAt: index,
     }))
     vi.mocked(storageService.getNotesBySpecimen).mockResolvedValue(notes)
     vi.mocked(storageService.getNotesBySpecies).mockResolvedValue(notes)
@@ -246,8 +286,16 @@ describe('Revisión de otras listas resumidas', () => {
 
   it('abre todos los campos de la ficha técnica desde el resumen de tres', async () => {
     const sheet: Sheet = {
-      id: 'sheet', species: bonsai.species, origin: 'manual', lastUpdated: 1,
-      content: { luz: 'Campo luz', riego: 'Campo riego', poda: 'Campo poda', sustrato: 'Campo sustrato' },
+      id: 'sheet',
+      species: bonsai.species,
+      origin: 'manual',
+      lastUpdated: 1,
+      content: {
+        luz: 'Campo luz',
+        riego: 'Campo riego',
+        poda: 'Campo poda',
+        sustrato: 'Campo sustrato',
+      },
     }
     vi.mocked(storageService.getSheetBySpecies).mockResolvedValue(sheet)
     await render()
@@ -262,36 +310,76 @@ describe('Revisión de otras listas resumidas', () => {
     const date = new Date()
     date.setDate(15)
     date.setHours(12, 0, 0, 0)
-    vi.mocked(storageService.getEventsByDateRange).mockResolvedValue(Array.from({ length: 5 }, (_, index) => ({
-      id: `event-${index}`, type: 'manual-reminder', title: `Evento ${index}`, date: date.getTime(), completed: false, createdAt: index,
-    })))
+    vi.mocked(storageService.getEventsByDateRange).mockResolvedValue(
+      Array.from({ length: 5 }, (_, index) => ({
+        id: `event-${index}`,
+        type: 'manual-reminder',
+        title: `Evento ${index}`,
+        date: date.getTime(),
+        completed: false,
+        createdAt: index,
+      }))
+    )
     await render('/calendar')
     await click(button('15'))
     for (let index = 0; index < 5; index++) expect(host.textContent).toContain(`Evento ${index}`)
   })
 })
 
-
 describe('F034/F035 — historial filtrado y edición de detalles', () => {
   it('combina producto, tipo y fotos del cuidado, conserva filtros al editar e informa éxito', async () => {
-    cares[0] = { ...cares[0], type: 'fertilizing', specificFields: { product: 'Abono X', dose: 2, doseUnit: 'g/L', future: { preserved: true } } }
+    cares[0] = {
+      ...cares[0],
+      type: 'fertilizing',
+      specificFields: { product: 'Abono X', dose: 2, doseUnit: 'g/L', future: { preserved: true } },
+    }
     vi.mocked(storageService.getPhotosByBonsai).mockResolvedValue([
-      { id: 'photo', bonsaiId: 'tree', careId: cares[0].id, imageData: '', takenAt: 1, createdAt: 1, isMainPhoto: false },
-      { id: 'orphan', bonsaiId: 'tree', imageData: '', takenAt: 1, createdAt: 1, isMainPhoto: true },
+      {
+        id: 'photo',
+        bonsaiId: 'tree',
+        careId: cares[0].id,
+        imageData: '',
+        takenAt: 1,
+        createdAt: 1,
+        isMainPhoto: false,
+      },
+      {
+        id: 'orphan',
+        bonsaiId: 'tree',
+        imageData: '',
+        takenAt: 1,
+        createdAt: 1,
+        isMainPhoto: true,
+      },
     ])
     await render('/bonsai/tree/cares?type=fertilizing&photos=with&q=Abono')
     expect(host.querySelectorAll('article')).toHaveLength(1)
-    expect(host.textContent).toContain('Dosis: 2 g/L')
+    expect(host.textContent).toContain('Dosis de producto: 2 g/L')
     await click(host.querySelector('article button')!)
-    const doseLabel = [...host.querySelectorAll('label')].find((label) => label.textContent === 'Dosis')!
+    const doseLabel = [...host.querySelectorAll('label')].find(
+      (label) => label.textContent === 'Dosis de producto'
+    )!
     await fill(document.getElementById(doseLabel.htmlFor)! as HTMLInputElement, '3,5')
     await click(button('Guardar'))
     expect(host.querySelectorAll('article')).toHaveLength(1)
     expect(host.textContent).toContain('Cuidado guardado')
     expect(host.querySelector<HTMLInputElement>('input[type="search"]')!.value).toBe('Abono')
-    expect(storageService.updateCare).toHaveBeenCalledWith('care-0', expect.objectContaining({ specificFields: { product: 'Abono X', dose: 3.5, doseUnit: 'g/L', future: { preserved: true } } }), expect.any(String))
+    expect(storageService.updateCare).toHaveBeenCalledWith(
+      'care-0',
+      expect.objectContaining({
+        specificFields: {
+          product: 'Abono X',
+          dose: 3.5,
+          doseUnit: 'g/L',
+          future: { preserved: true },
+        },
+      }),
+      expect.any(String)
+    )
     await click(host.querySelector('article button')!)
-    const changeType = [...host.querySelectorAll('button')].find((element) => element.textContent?.includes('Alambrado'))!
+    const changeType = [...host.querySelectorAll('button')].find((element) =>
+      element.textContent?.includes('Alambrado')
+    )!
     await click(changeType)
     await click(button('Cambiar tipo'))
     await click(button('Guardar'))
@@ -305,7 +393,14 @@ describe('F034/F035 — historial filtrado y edición de detalles', () => {
 
   it('solo considera fotos con careId y conserva los filtros tras eliminar', async () => {
     vi.mocked(storageService.getPhotosByBonsai).mockResolvedValue([
-      { id: 'gallery', bonsaiId: 'tree', imageData: '', takenAt: 1, createdAt: 1, isMainPhoto: true },
+      {
+        id: 'gallery',
+        bonsaiId: 'tree',
+        imageData: '',
+        takenAt: 1,
+        createdAt: 1,
+        isMainPhoto: true,
+      },
     ])
     await render('/bonsai/tree/cares?photos=with')
     expect(host.querySelectorAll('article')).toHaveLength(0)
@@ -324,10 +419,74 @@ describe('F034/F035 — historial filtrado y edición de detalles', () => {
     await render('/bonsai/tree/cares')
     await click(button('Filtros de cuidados'))
     const period = host.querySelector('select')!
-    await act(async () => { period.value = 'custom'; period.dispatchEvent(new Event('change', { bubbles: true })) })
+    await act(async () => {
+      period.value = 'custom'
+      period.dispatchEvent(new Event('change', { bubbles: true }))
+    })
     const dates = host.querySelectorAll<HTMLInputElement>('input[type="date"]')
-    await fill(dates[0], '2026-10-28'); await fill(dates[1], '2026-10-27')
+    await fill(dates[0], '2026-10-28')
+    await fill(dates[1], '2026-10-27')
     expect(button('Aplicar filtros').disabled).toBe(true)
     expect(host.querySelector('[role="alert"]')!.textContent).toContain('rango de fechas')
+  })
+})
+
+describe('B029 — limpieza de seguimiento individual', () => {
+  it('quita fecha y texto al editar y guarda sin recrear un evento vacío', async () => {
+    cares[0].followUpReminder = {
+      date: new Date(2026, 10, 3, 12).getTime(),
+      description: 'Seguimiento anterior',
+    }
+    await render('/bonsai/tree/care/care-0')
+    expect(host.querySelector('input[value="Seguimiento anterior"]')).not.toBeNull()
+    await click(button('Quitar recordatorio'))
+    expect(host.querySelectorAll<HTMLInputElement>('input[type="date"]')[1].value).toBe('')
+    await click(button('Guardar'))
+    expect(storageService.updateCare).toHaveBeenCalledWith(
+      'care-0',
+      expect.objectContaining({ followUpReminder: undefined }),
+      expect.any(String)
+    )
+    expect(storageService.saveEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('F036/M015 — sugerencia en el formulario individual compartido', () => {
+  it('envía detalles e idioma, deja editar la sugerencia y no guarda al solicitarla', async () => {
+    const previousConfig = useAppStore.getState().config
+    const suggest = vi
+      .fn()
+      .mockResolvedValue({
+        date: new Date(2026, 10, 3, 12).getTime(),
+        description: 'Revisar individual',
+      })
+    vi.spyOn(aiFactory, 'createAIService').mockResolvedValue({
+      suggestReminder: suggest,
+    } as unknown as AIService)
+    useAppStore.setState({ config: { ...previousConfig!, encryptedApiKey: 'test-config' } })
+    try {
+      cares[0] = { ...cares[0], type: 'fertilizing', specificFields: { product: 'Solo producto' } }
+      await render('/bonsai/tree/care/care-0')
+      await click(button('Sugerir con IA'))
+      expect(suggest).toHaveBeenCalledWith(
+        expect.objectContaining({ specificFields: { product: 'Solo producto' } }),
+        expect.objectContaining({ bonsai }),
+        'es'
+      )
+      expect(storageService.updateCare).not.toHaveBeenCalled()
+      expect(host.querySelector('input[value="Revisar individual"]')).not.toBeNull()
+      await click(button('Quitar recordatorio'))
+      await click(button('Guardar'))
+      expect(storageService.updateCare).toHaveBeenCalledWith(
+        'care-0',
+        expect.objectContaining({
+          followUpReminder: undefined,
+          specificFields: { product: 'Solo producto' },
+        }),
+        expect.any(String)
+      )
+    } finally {
+      await act(async () => useAppStore.setState({ config: previousConfig }))
+    }
   })
 })

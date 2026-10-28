@@ -78,7 +78,7 @@ El usuario realiza todas las pruebas usando la app y confirma el resultado duran
 npm run preview
 ```
 
-La suite usa Vitest, jsdom y fake-indexeddb. `src/test/storage.test.ts` cubre almacenamiento y relaciones de cuidados con eventos, fotos y notas. `src/test/care-history.test.tsx` verifica los flujos del historial y otros listados resumidos mediante componentes React y navegación en memoria, con servicios simulados. `src/test/care-details.test.ts`, `src/test/bulk-care.test.tsx` y `src/test/care-backup.test.ts` cubren detalles, selección y borradores masivos, filtros y compatibilidad de exportación/restauración. Los tests de almacenamiento incluyen rollback de cargas masivas. Pasar la suite no prueba dispositivos reales ni proveedores externos.
+La suite usa Vitest, jsdom y fake-indexeddb. `src/test/storage.test.ts` cubre almacenamiento y relaciones de cuidados con eventos, fotos y notas. `src/test/care-history.test.tsx` verifica los flujos del historial y otros listados resumidos mediante componentes React y navegación en memoria, con servicios simulados. `src/test/care-details.test.ts`, `src/test/bulk-care.test.tsx` y `src/test/care-backup.test.ts` cubren detalles, selección y borradores masivos, filtros y compatibilidad de exportación/restauración. `src/test/care-components.test.tsx` cubre cantidades, unidades, limpieza y respuestas tardías de IA; `src/test/reminder-ai.test.ts` prueba los tres proveedores con red simulada. `src/test/inventory-visibility.test.tsx` cubre fallecidos ocultos, filtros combinados, limpieza, cancelación y ambas vistas de Mi Colección. `src/test/startup-notices.test.tsx` cubre novedades por versión, reconocimiento local, secuencia con bienvenida, temporizador, idiomas y navegación, también bajo StrictMode. Los tests de almacenamiento incluyen rollback de cargas masivas. Pasar la suite no prueba dispositivos reales ni proveedores externos.
 
 Agregar tests de regresión cuando ayuden a proteger una corrección lógica, especialmente fechas y persistencia. En problemas de interfaz o de plataforma, cubrir con tests de componentes lo que corresponda y dejar la prueba real del recorrido y sus flujos vecinos al usuario. Para cambios solo documentales basta revisar enlaces y referencias y ejecutar `git diff --check`.
 
@@ -107,19 +107,21 @@ El agente entrega los resultados de las validaciones de código y una indicació
 
 ## 6. Versiones y publicación
 
-La versión de referencia es `1.5.0` (2026-10-27). Una edición exclusivamente documental no requiere cambiar la versión de la aplicación.
+La versión de referencia es `1.6.0` (2026-10-28). Una edición exclusivamente documental no requiere cambiar la versión de la aplicación.
 
 Cuando el usuario solicite publicar una versión:
 
 1. Revisar los cambios que se integrarán desde `develop` y ejecutar las verificaciones aplicables. Si existen fallas previas, informarlas y no presentar el resultado como completamente limpio.
-2. Actualizar la versión en `package.json` y la metadata correspondiente de `package-lock.json`. Revisar también las versiones visibles, actualmente escritas en `Settings.tsx` y `WelcomeScreen.tsx`.
-3. Actualizar [CHANGELOG.md](CHANGELOG.md) con la fecha real y el comportamiento de esa versión, sin convertir automáticamente los ítems `en revisión` en `resuelto`.
+2. Actualizar la versión en `package.json` y la metadata correspondiente de `package-lock.json`. La bienvenida, el modal de novedades y Ajustes consumen `APP_VERSION` desde `src/utils/appVersion.ts`, que obtiene la versión de `package.json`; no mantener números de versión duplicados en esas pantallas.
+3. Actualizar [CHANGELOG.md](CHANGELOG.md) con la fecha real y el comportamiento de esa versión, sin convertir automáticamente los ítems `en revisión` en `resuelto`. Preparar el resumen `releaseNotes.bullets` en `src/i18n/es.json` y `src/i18n/en.json`, correspondiente a esa entrega. **El usuario debe revisar y aprobar el texto del modal antes de publicar**: presentar el texto completo si todavía no lo aprobó; conservar literalmente el español aprobado y su traducción fiel. No generar el resumen automáticamente desde el changelog ni cambiarlo después de la aprobación sin volver a presentarlo. Si ya aprobó el texto de esa entrega y no cambió, no pedir la misma aprobación de nuevo.
 4. Integrar `develop` en `main` y publicar los commits como parte de la tarea de release. Si se crea un tag, asociarlo al commit que contiene la versión publicada; no hay automatización de tags ni de GitHub Releases en el workflow actual.
 5. Comprobar el resultado de GitHub Actions. El usuario prueba la URL publicada, incluida la carga/actualización de la PWA. Revisar la wiki si cambian las instrucciones para usuarios.
 
 El workflow [deploy.yml](../.github/workflows/deploy.yml) ejecuta `npm ci --legacy-peer-deps` y `npm run build`, y publica `dist/` en GitHub Pages. Actualmente no ejecuta tests ni lint, y no se dispara por cambios en `develop`. Incorporar esos controles a CI queda para un cambio posterior junto con el tratamiento del lint existente; esta mejora documental no modifica el despliegue.
 
 ## 7. Mantenimiento de documentos
+
+La regla de reutilización y consistencia de componentes está en [AGENTS.md](../AGENTS.md#convenciones-y-arquitectura). Antes de implementar un cambio de interfaz, identificar la referencia existente y sus consumidores; extraer y compartir la implementación cuando esté inline, respetando su presentación y comportamiento. Las diferencias entre pantallas deben responder a una necesidad funcional, sin crear diseños independientes para la misma tarea.
 
 - Cambios de proceso: esta guía y, si cambia una regla para agentes, `AGENTS.md`.
 - Cambios técnicos: `SPEC.md`; usar enlaces al código en vez de copiar interfaces completas.

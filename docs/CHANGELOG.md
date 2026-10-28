@@ -1,5 +1,36 @@
 # NiwaMirî — Changelog
 
+## v1.6.0 — 2026-10-28
+
+### Documentación
+
+- F038: secuencia de modales documentada en M1 y backlog, implementada y en revisión. Regla de aprobación del texto de novedades antes de publicar incorporada a AGENTS y al procedimiento de versiones.
+- F037: visibilidad de árboles fallecidos implementada y documentada en M2 y backlog, pendiente de validación del usuario.
+- Regla explícita de reutilización y consistencia de componentes en AGENTS.md, con referencia en la guía de desarrollo.
+- Ajustes de Cuidados registrados en B027–B029, M015 y F036; solución aprobada e incluida en esta versión; pendiente de validación del usuario.
+
+### Cuidados — ajustes en revisión
+
+- **B027:** cada paso masivo comienza arriba y conserva el borrador.
+- **B028 / M015:** selectores visibles de unidades, dosis opcional y volumen adicional desplegable. Se puede guardar solo el producto por árbol. Detalles y Recordatorio comparten la tarjeta/título del recordatorio individual; ambos formularios reutilizan el mismo componente de seguimiento.
+- **B029:** fecha de tamaño estable y «Quitar recordatorio» para limpiar fecha y descripción. Bloqueo de seguimientos incompletos y protección frente a respuestas tardías de IA.
+- **F036:** sugerencia común editable para todos los árboles, mediante una sola consulta explícita. Mismo comportamiento en individual y masivo, con Gemini/OpenAI/Claude y traducciones es/en.
+
+### Colección — F037 en revisión
+
+- Fallecidos ocultos por defecto en grilla y lista. Check «Mostrar árboles fallecidos» en el panel de filtros, sincronizado con el estado Fallecido y combinado con los demás criterios.
+- El botón de filtros siempre abre el panel, incluso con filtros activos; limpiar restablece la exclusión inicial. Se conserva la colección y los historiales, y el check reutiliza el mismo componente que la carga masiva.
+
+### Bienvenida — F038 en revisión
+
+- Modal de novedades por versión previo a la bienvenida habitual, con cuatro bullets en español proporcionados y aprobados por el usuario, y traducción al inglés. Estructura visual compartida, foco de teclado y desplazamiento en pantallas pequeñas.
+- «Continuar» recuerda localmente la versión vista y abre la bienvenida; las novedades no se cierran automáticamente ni se repiten en esa versión. El temporizador de bienvenida comienza en su propio paso.
+- Versión obtenida de `package.json` para bienvenida, novedades y Ajustes. El registro de lectura no modifica la colección ni los backups. Publicada con versión 1.6.0.
+
+### Validación de código
+
+- 130 tests pasan y build correcto. Lint queda en 13 errores y 6 advertencias previos; se retiran dos errores y una advertencia de la bienvenida al implementar la secuencia, sin problemas nuevos. Sin pruebas del agente usando la app ni proveedores reales; pendientes de confirmación del usuario.
+
 ## v1.5.0 — 2026-10-27
 
 ### Documentación
@@ -10,18 +41,18 @@
 - README y especificaciones actualizados al versión 1.5.0, distinguiendo funciones disponibles y requisitos previstos.
 - Verificaciones y publicación documentadas. Se conserva el seguimiento existente de bugs, sin cambios de estructura ni de estado.
 
-### Cuidados — funcionalidades en revisión
+### Cuidados
 
 - **F033:** registro en varios árboles desde Colección, con estado y observaciones comunes o por árbol, revisión previa y guardado transaccional de cuidados/eventos. Ante errores se conserva el borrador y se revierte la carga completa.
 - **F034:** filtros del historial por tipos, fechas locales y fotos vinculadas, combinados con búsqueda de producto y detalles; se conservan al editar y volver.
 - **F035:** detalles opcionales para los 14 tipos, con productos usados anteriormente, dosis y unidades, varios calibres de alambre, resúmenes y edición. Se conserva la compatibilidad de registros y backups anteriores.
-- Incluidas en v1.5.0; pendientes de validación del usuario en la aplicación. Las comprobaciones del agente se limitan a código.
+- Incluidas en v1.5.0; validadas por el usuario el 2026-10-28. Las comprobaciones del agente se limitan a código.
 
 ### Validación de código
 
 - 84 tests unitarios y de integración pasan; incluye comprobaciones de fechas con cambio de horario. Build de producción correcto, con advertencias previas de bundle/imports/Browserslist.
 - Lint conserva 15 errores y 7 advertencias preexistentes; sin problemas nuevos.
-- B026 y F033–F035 permanecen `en revisión` hasta la confirmación del usuario.
+- Validación posterior (2026-10-28): el usuario confirmó B026 y F029–F035; los ocho ítems pasaron a `resuelto` en el backlog.
 
 ### Correcciones
 

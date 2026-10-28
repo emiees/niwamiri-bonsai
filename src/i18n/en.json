@@ -1,4 +1,14 @@
 {
+  "releaseNotes": {
+    "title": "What’s new in this version",
+    "continue": "Continue",
+    "bullets": [
+      "Deceased trees hidden by default, with an option to show them from filters.",
+      "Fertilization care with optional doses and unit selectors.",
+      "Suggested reminders from bulk care with AI suggestions and an option to remove them.",
+      "Bug fixes."
+    ]
+  },
   "nav": {
     "inventory": "Collection",
     "journal": "Journal",
@@ -91,7 +101,11 @@
     "addFirst": "Add your first bonsai",
     "addNew": "New bonsai",
     "filterAll": "All",
-    "pendingCares": "Pending cares"
+    "pendingCares": "Pending cares",
+    "showDeceased": "Show deceased trees",
+    "advancedFilters": "Advanced filters",
+    "openFilters": "Open filters",
+    "deceasedHidden": "Deceased trees are hidden. You can show them using the filters."
   },
   "bonsaiDetail": {
     "sections": {
@@ -234,16 +248,16 @@
   },
   "careDetails": {
     "title": "Care details",
-    "optional": "Optional. Record what was done using the product unit.",
+    "optional": "All details are optional. Fill in only what you want to record.",
     "fields": {
       "method": "Method",
       "volume": "Volume per tree",
       "drainage": "Observed drainage",
       "product": "Product",
       "presentation": "Presentation",
-      "dose": "Dose",
+      "dose": "Product dose",
       "npk": "Label NPK",
-      "amount": "Amount applied per tree",
+      "amount": "Prepared mixture applied per tree",
       "zone": "Area",
       "goal": "Goal",
       "intensity": "Intensity",
@@ -302,7 +316,8 @@
       "days": "days",
       "weeks": "weeks",
       "months": "months",
-      "years": "years"
+      "years": "years",
+      "L/tree": "L/tree"
     },
     "unit": "Unit",
     "unitFor": "{{field}} unit",
@@ -318,7 +333,18 @@
     "reminderDate": "Reminder date",
     "reminderDescription": "Reminder description",
     "useReviewDate": "Create follow-up on the wire review date",
-    "reviewReminder": "Review wiring"
+    "reviewReminder": "Review wiring",
+    "selectUnit": "Choose unit",
+    "otherUnit": "Other unit",
+    "customUnitFor": "Custom unit for {{field}}",
+    "doseHelp": "You can save only the product. If you enter a dose, choose its unit: per liter for a mixture, or per tree for direct application.",
+    "addAmount": "Add volume applied per tree (optional)",
+    "removeAmount": "Remove applied amount",
+    "clearReminder": "Remove reminder",
+    "aiUnavailable": "Configure your AI key in Settings to request a suggestion.",
+    "suggestionError": "Could not get a suggestion. Check the date, details and tree conditions; retry or enter the reminder manually.",
+    "incompleteReminder": "Enter a valid date and description, or remove the reminder to save without follow-up.",
+    "bulkReminderScope": "Shared reminder for {{count}} trees. The suggestion is editable and applies to all when saved."
   },
   "bulkCare": {
     "title": "Record cares",
@@ -342,7 +368,7 @@
     "pendingCondition": "Condition required",
     "replaceIndividual": "Trees have different values. Returning to common mode replaces those adjustments. Continue?",
     "conditionsMissing": "Choose a condition for: {{names}}.",
-    "photosLater": "Photos can be added later to each care. Follow-up is manual.",
+    "photosLater": "Photos can be added later to each care.",
     "review": "Review cares",
     "backToEdit": "Back to editing",
     "save": "Save for {{count}} trees",

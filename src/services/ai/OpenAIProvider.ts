@@ -1,4 +1,11 @@
-import type { AIService, AIMessage, BonsaiContext, GeneralContext } from './AIService'
+import { buildReminderPrompt, individualReminderRequest, parseReminder } from './reminderPrompt'
+import type {
+  AIService,
+  AIMessage,
+  BonsaiContext,
+  GeneralContext,
+  ReminderRequest,
+} from './AIService'
 import type { ClassNote, CareType, Care } from '../../db/schema'
 
 const OPENAI_API_BASE = 'https://api.openai.com/v1'
@@ -29,9 +36,10 @@ export class OpenAIProvider implements AIService {
   }
 
   async identifySpecies(imageBase64: string, lang = 'es') {
-    const langInstruction = lang === 'es'
-      ? 'Respond in Spanish (except the species scientific name, which must stay in Latin).'
-      : 'Respond in English.'
+    const langInstruction =
+      lang === 'es'
+        ? 'Respond in Spanish (except the species scientific name, which must stay in Latin).'
+        : 'Respond in English.'
     const text = await this.complete([
       {
         role: 'user',
@@ -73,11 +81,15 @@ export class OpenAIProvider implements AIService {
   }
 
   async chat(messages: AIMessage[], context: BonsaiContext): Promise<string> {
-    const recentCaresSummary = context.recentCares.slice(0, 7).map((c) => {
-      const date = new Date(c.date).toLocaleDateString('es-AR')
-      const desc = c.description ? ` — "${c.description}"` : ''
-      return `• ${date}: ${c.type} (${c.treeCondition})${desc}`
-    }).join('\n') || 'ninguno registrado'
+    const recentCaresSummary =
+      context.recentCares
+        .slice(0, 7)
+        .map((c) => {
+          const date = new Date(c.date).toLocaleDateString('es-AR')
+          const desc = c.description ? ` — "${c.description}"` : ''
+          return `• ${date}: ${c.type} (${c.treeCondition})${desc}`
+        })
+        .join('\n') || 'ninguno registrado'
     const system = `You are NiwaMirî, an expert bonsai assistant.
 Árbol: ${context.bonsai.name} (${context.bonsai.species}), estado: ${context.bonsai.status}, estación: ${context.season}.
 Últimos cuidados registrados:
@@ -101,12 +113,15 @@ Responde siempre en español. Cuando sea relevante, considera el historial de cu
   }
 
   async chatGeneral(messages: AIMessage[], context: GeneralContext): Promise<string> {
-    const treeList = context.bonsais
-      .map((b) => `${b.name} (${b.commonName ?? b.species}, ${b.status})`)
-      .join(', ') || 'ninguno'
-    const notesSummary = context.recentJournalNotes.slice(0, 5)
-      .map((n) => `- ${n.title ? n.title + ': ' : ''}${n.content.slice(0, 120)}`)
-      .join('\n') || 'ninguna'
+    const treeList =
+      context.bonsais
+        .map((b) => `${b.name} (${b.commonName ?? b.species}, ${b.status})`)
+        .join(', ') || 'ninguno'
+    const notesSummary =
+      context.recentJournalNotes
+        .slice(0, 5)
+        .map((n) => `- ${n.title ? n.title + ': ' : ''}${n.content.slice(0, 120)}`)
+        .join('\n') || 'ninguna'
 
     const system = `Sos NiwaMirî, asistente experto en bonsái con acceso a la colección completa del usuario.
 Colección (${context.bonsais.length} árboles): ${treeList}
@@ -140,14 +155,13 @@ Respondé en español. Sé conciso y útil.`
     return JSON.parse(text.replace(/```json\n?|\n?```/g, ''))
   }
 
-  async suggestReminder(care: Care, context: BonsaiContext) {
-    const text = await this.complete([
-      {
-        role: 'user',
-        content: `Care registered: ${care.type} for ${context.bonsai.species} in ${context.season}. Suggest a follow-up reminder. JSON only: {"date":<ms>,"description":"..."}. Description in Spanish.`,
-      },
-    ])
-    return JSON.parse(text.replace(/```json\n?|\n?```/g, ''))
+  async suggestReminder(care: Care, context: BonsaiContext, language = 'es') {
+    return this.suggestBulkReminder(individualReminderRequest(care, context, language))
+  }
+
+  async suggestBulkReminder(request: ReminderRequest) {
+    const text = await this.complete([{ role: 'user', content: buildReminderPrompt(request) }])
+    return parseReminder(text, request.date)
   }
 
   async verifyConnection(apiKey: string): Promise<boolean> {

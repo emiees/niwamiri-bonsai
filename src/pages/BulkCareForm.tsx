@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { inputClass, inputStyle } from '@/components/care/styles'
+import CheckboxRow from '@/components/ui/CheckboxRow'
 import { TreePine } from 'lucide-react'
 import AppShell from '@/components/layout/AppShell'
 import Header from '@/components/layout/Header'
@@ -12,6 +13,10 @@ import {
   ConditionFields,
   ReminderFields,
 } from '@/components/care/CareFields'
+import { useAppStore } from '@/store/appStore'
+import { useSeason } from '@/hooks/useSeason'
+import { createAIService } from '@/hooks/useAI'
+import { useReminderSuggestion } from '@/hooks/useReminderSuggestion'
 import { useBonsaiStore } from '@/store/bonsaiStore'
 import { storageService } from '@/services/storage/DexieStorageService'
 import { CareValidationError } from '@/services/storage/StorageService'
@@ -24,10 +29,13 @@ import {
   type DetailDraft,
 } from '@/utils/careDetails'
 import { seedRecipients, selectTrees, type TreeCareDraft } from '@/utils/bulkCare'
-import { dateStrToTs, localToday } from '@/utils/dates'
+import { dateStrToTs, localToday, tsToDateStr } from '@/utils/dates'
 
 export default function BulkCareForm() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const config = useAppStore((state) => state.config)
+  const season = useSeason()
+  const stepHeading = useRef<HTMLParagraphElement>(null)
   const navigate = useNavigate()
   const { bonsais, fetchBonsais } = useBonsaiStore()
   const [step, setStep] = useState(1)
@@ -47,6 +55,7 @@ export default function BulkCareForm() {
   const [confirmCommon, setConfirmCommon] = useState(false)
   const [reminderDate, setReminderDate] = useState('')
   const [reminderDescription, setReminderDescription] = useState('')
+  const [reminderInvalid, setReminderInvalid] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -71,6 +80,68 @@ export default function BulkCareForm() {
     tree: bonsais.find((tree) => tree.id === id),
     draft: individual ? (drafts[id] ?? common) : common,
   }))
+  const suggestion = useReminderSuggestion(
+    JSON.stringify({
+      recipients,
+      type,
+      date,
+      details,
+      season,
+      step,
+      language: i18n.language,
+      provider: config?.aiProvider,
+      model: config?.aiModel,
+    })
+  )
+  useLayoutEffect(() => {
+    // La ventana y main pueden conservar el desplazamiento del paso anterior.
+    const main = stepHeading.current?.closest('main')
+    if (main) main.scrollTop = 0
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    stepHeading.current?.focus({ preventScroll: true })
+  }, [step])
+  async function suggestReminder() {
+    if (!config?.encryptedApiKey) return
+    await suggestion.suggest(
+      async () => {
+        if (
+          !isValidDay(date) ||
+          validateDetails(type, details).length ||
+          !recipients.length ||
+          recipients.some(({ tree, draft }) => !tree || !draft.condition)
+        )
+          throw new Error('Incomplete care')
+        const service = await createAIService(
+          config.encryptedApiKey!,
+          config.aiProvider,
+          config.aiModel
+        )
+        return service.suggestBulkReminder({
+          type,
+          date: dateStrToTs(date),
+          specificFields: normalizeDetails(type, details),
+          season,
+          language: i18n.language,
+          trees: recipients.map(({ tree, draft }) => ({
+            id: tree!.id,
+            name: tree!.name,
+            species: tree!.species,
+            status: tree!.status,
+            condition: draft.condition!,
+            description: draft.description,
+          })),
+        })
+      },
+      (result) => {
+        setReminderDate(tsToDateStr(result.date))
+        setReminderDescription(result.description)
+        setReminderInvalid(false)
+      }
+    )
+  }
   const visible = onlySelected
     ? bonsais.filter((tree) => selected.includes(tree.id))
     : selectTrees(bonsais, query, species, tags, inactive)
@@ -102,6 +173,10 @@ export default function BulkCareForm() {
   function review() {
     const invalidFields = validateDetails(type, details)
     setErrors(invalidFields)
+    const invalidReminder =
+      !!reminderDate !== !!reminderDescription.trim() ||
+      (!!reminderDate && !isValidDay(reminderDate))
+    setReminderInvalid(invalidReminder)
     const invalid =
       !isValidDay(date) ||
       invalidFields.length > 0 ||
@@ -125,6 +200,7 @@ export default function BulkCareForm() {
   }
   async function save() {
     if (lock.current) return
+    suggestion.invalidate()
     lock.current = true
     setSaving(true)
     setError('')
@@ -160,7 +236,12 @@ export default function BulkCareForm() {
     <AppShell showNav={false}>
       <Header title={t('bulkCare.title')} showBack />
       <div className="flex flex-col gap-4 px-4 py-3 pb-8">
-        <p className="text-xs" style={{ color: 'var(--text3)' }}>
+        <p
+          ref={stepHeading}
+          tabIndex={-1}
+          className="text-xs focus:outline-none"
+          style={{ color: 'var(--text3)' }}
+        >
           {t('bulkCare.step', { step })} · {t(`bulkCare.step${step}`)}
         </p>
         {step === 1 && (
@@ -206,14 +287,7 @@ export default function BulkCareForm() {
                 ))}
               </div>
             </fieldset>
-            <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text2)' }}>
-              <input
-                type="checkbox"
-                checked={inactive}
-                onChange={(e) => setInactive(e.target.checked)}
-              />
-              {t('bulkCare.includeInactive')}
-            </label>
+            <CheckboxRow label={t('bulkCare.includeInactive')} checked={inactive} onChange={setInactive} />
             <div className="flex flex-wrap gap-2">
               <CareChip onClick={() => choose([...selected, ...visible.map((tree) => tree.id)])}>
                 {t('bulkCare.selectVisible')}
@@ -284,6 +358,7 @@ export default function BulkCareForm() {
               }}
             />
             <CareDetailsFields
+              key={type}
               type={type}
               value={details}
               onChange={setDetails}
@@ -371,8 +446,29 @@ export default function BulkCareForm() {
             <ReminderFields
               date={reminderDate}
               description={reminderDescription}
-              onDate={setReminderDate}
-              onDescription={setReminderDescription}
+              onDate={(value) => {
+                suggestion.invalidate()
+                setReminderDate(value)
+                setReminderInvalid(false)
+              }}
+              onDescription={(value) => {
+                suggestion.invalidate()
+                setReminderDescription(value)
+                setReminderInvalid(false)
+              }}
+              onClear={() => {
+                suggestion.invalidate()
+                setReminderDate('')
+                setReminderDescription('')
+                setReminderInvalid(false)
+                setError('')
+              }}
+              onSuggest={suggestReminder}
+              canSuggest={!!config?.encryptedApiKey}
+              suggesting={suggestion.suggesting}
+              suggestionError={suggestion.suggestionError}
+              invalid={reminderInvalid}
+              scope={t('careDetails.bulkReminderScope', { count: selected.length })}
               reviewDate={type === 'wiring' ? (details.reviewDate as string) : undefined}
             />
             <p className="text-xs" style={{ color: 'var(--text3)' }}>

@@ -7,8 +7,9 @@ import { db } from '@/db/schema'
 import { useSeason } from '@/hooks/useSeason'
 import { useBonsaiStore } from '@/store/bonsaiStore'
 import { useAppStore } from '@/store/appStore'
-
-const SESSION_KEY = 'niwamiri_welcome_shown'
+import StartupModal from './StartupModal'
+import ReleaseNotesModal from './ReleaseNotesModal'
+import { acknowledgeRelease, getStartupStep, markWelcomeShown } from '@/utils/startupNotice'
 
 const SEASON_GREETINGS: Record<string, { emoji: string; es: string; en: string }> = {
   spring: { emoji: '🌸', es: '¡Bienvenido a la primavera!', en: 'Welcome to spring!' },
@@ -35,7 +36,7 @@ export default function WelcomeScreen() {
   const { bonsais } = useBonsaiStore()
   const config = useAppStore((s) => s.config)
 
-  const [visible, setVisible] = useState(false)
+  const [step, setStep] = useState(getStartupStep)
   const [pendingCount, setPendingCount] = useState(0)
   const [countdown, setCountdown] = useState(10)
   const [newRecords, setNewRecords] = useState<{ cares: number; photos: number; notes: number } | null>(null)
@@ -46,34 +47,45 @@ export default function WelcomeScreen() {
   const showBackupWarning = neverBacked || totalNew > 3
 
   useEffect(() => {
-    if (sessionStorage.getItem(SESSION_KEY)) return
-    sessionStorage.setItem(SESSION_KEY, '1')
+    if (step !== 'welcome') return
+    markWelcomeShown()
+    let cancelled = false
 
     const now = Date.now()
 
     // Cuidados vencidos en el calendario
     storageService.getEventsByDateRange(0, now).then((events) => {
       const overdue = events.filter((e) => !e.completed && e.date <= now).length
-      setPendingCount(overdue)
+      if (!cancelled) setPendingCount(overdue)
     }).catch(() => {})
 
     // Registros nuevos desde el último backup
     const since = config?.lastBackupAt ?? 0
-    countNewRecordsSince(since).then(setNewRecords).catch(() => {})
+    countNewRecordsSince(since).then((records) => {
+      if (!cancelled) setNewRecords(records)
+    }).catch(() => {})
 
-    setVisible(true)
-  }, [])
+    return () => { cancelled = true }
+  }, [step, config?.lastBackupAt])
 
   useEffect(() => {
-    if (!visible) return
-    // Sin auto-cierre cuando hay alerta de backup (se espera que el usuario la lea)
-    if (showBackupWarning) return
-    if (countdown <= 0) { setVisible(false); return }
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    // El temporizador comienza solo al llegar a la bienvenida.
+    if (step !== 'welcome' || showBackupWarning) return
+    const timer = setTimeout(() => {
+      if (countdown <= 1) setStep('closed')
+      else setCountdown((c) => c - 1)
+    }, 1000)
     return () => clearTimeout(timer)
-  }, [visible, countdown, showBackupWarning])
+  }, [step, countdown, showBackupWarning])
 
-  if (!visible) return null
+  if (step === 'closed') return null
+  if (step === 'news') {
+    return <ReleaseNotesModal onContinue={() => {
+      acknowledgeRelease()
+      setCountdown(10)
+      setStep('welcome')
+    }} />
+  }
 
   const greeting = SEASON_GREETINGS[season]
 
@@ -101,97 +113,67 @@ export default function WelcomeScreen() {
     }
   }
 
-  function dismiss() { setVisible(false) }
+  function dismiss() { setStep('closed') }
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center px-6"
-      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+    <StartupModal
+      title={`${greeting.emoji} ${lang === 'es' ? greeting.es : greeting.en}`}
+      subtitle={lang === 'es' ? 'Tu jardín pequeño te espera' : 'Your little garden awaits'}
+      onContinue={dismiss}
+      actionLabel={lang === 'es'
+        ? `Entrar${!showBackupWarning && countdown > 0 ? ` (${countdown})` : ''}`
+        : `Enter${!showBackupWarning && countdown > 0 ? ` (${countdown})` : ''}`}
     >
+      {/* Resumen colección */}
       <div
-        className="w-full max-w-sm rounded-3xl flex flex-col gap-5 p-6"
-        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+        className="flex items-center gap-3 rounded-2xl px-4 py-3"
+        style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}
       >
-        {/* Cabecera: logo + nombre + bienvenida estacional + tagline */}
-        <div className="text-center">
-          <img
-            src={`${import.meta.env.BASE_URL}favicon.svg`}
-            alt="NiwaMirî"
-            className="mx-auto mb-3 h-16 w-16"
-          />
-          <p className="text-base font-semibold" style={{ color: 'var(--text2)' }}>
-            NiwaMirî <span className="text-xs font-normal" style={{ opacity: 0.6 }}>v1.5.0</span>
-          </p>
-          <p className="text-xl font-bold mt-2" style={{ color: 'var(--text1)' }}>
-            {greeting.emoji} {lang === 'es' ? greeting.es : greeting.en}
-          </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--text3)' }}>
-            {lang === 'es' ? 'Tu jardín pequeño te espera' : 'Your little garden awaits'}
-          </p>
-        </div>
-
-        {/* Resumen colección */}
-        <div
-          className="flex items-center gap-3 rounded-2xl px-4 py-3"
-          style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}
-        >
-          <TreePine size={18} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
-          <p className="text-sm" style={{ color: 'var(--text2)' }}>
-            {lang === 'es'
-              ? `${bonsais.length} árbol${bonsais.length !== 1 ? 'es' : ''} en tu colección`
-              : `${bonsais.length} tree${bonsais.length !== 1 ? 's' : ''} in your collection`}
-          </p>
-        </div>
-
-        {/* Cuidados vencidos */}
-        {pendingCount > 0 && (
-          <button
-            onClick={() => { dismiss(); navigate('/calendar') }}
-            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left"
-            style={{ background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.3)' }}
-          >
-            <CalendarDays size={18} style={{ color: 'rgb(251,146,60)', flexShrink: 0 }} />
-            <p className="text-sm font-medium" style={{ color: 'rgb(251,146,60)' }}>
-              {lang === 'es'
-                ? `${pendingCount} cuidado${pendingCount !== 1 ? 's' : ''} vencido${pendingCount !== 1 ? 's' : ''}`
-                : `${pendingCount} overdue care${pendingCount !== 1 ? 's' : ''}`}
-            </p>
-          </button>
-        )}
-
-        {/* Alerta de backup inteligente — pulso cuando nunca se hizo backup */}
-        {showBackupWarning && (
-          <button
-            onClick={() => { dismiss(); navigate('/settings/backup') }}
-            className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left${neverBacked ? ' animate-pulse' : ''}`}
-            style={{
-              background: neverBacked ? 'rgba(239,68,68,0.12)' : 'rgba(99,102,241,0.12)',
-              border: `1px solid ${neverBacked ? 'rgba(239,68,68,0.3)' : 'rgba(99,102,241,0.3)'}`,
-            }}
-          >
-            <HardDrive size={18} style={{ color: neverBacked ? '#ef4444' : 'rgb(129,140,248)', flexShrink: 0 }} />
-            <div>
-              <p className="text-sm font-bold" style={{ color: neverBacked ? '#ef4444' : 'rgb(129,140,248)' }}>
-                {backupWarningText().title}
-              </p>
-              <p className="text-xs" style={{ color: 'var(--text3)' }}>
-                {backupWarningText().subtitle}
-              </p>
-            </div>
-          </button>
-        )}
-
-        {/* Botón Entrar — sin temporizador si hay alerta de backup */}
-        <button
-          onClick={dismiss}
-          className="h-12 w-full rounded-2xl text-sm font-semibold"
-          style={{ background: 'var(--color-accent)', color: 'var(--green1)' }}
-        >
+        <TreePine size={18} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
+        <p className="text-sm" style={{ color: 'var(--text2)' }}>
           {lang === 'es'
-            ? `Entrar${!showBackupWarning && countdown > 0 ? ` (${countdown})` : ''}`
-            : `Enter${!showBackupWarning && countdown > 0 ? ` (${countdown})` : ''}`}
-        </button>
+            ? `${bonsais.length} árbol${bonsais.length !== 1 ? 'es' : ''} en tu colección`
+            : `${bonsais.length} tree${bonsais.length !== 1 ? 's' : ''} in your collection`}
+        </p>
       </div>
-    </div>
+
+      {/* Cuidados vencidos */}
+      {pendingCount > 0 && (
+        <button
+          onClick={() => { dismiss(); navigate('/calendar') }}
+          className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left"
+          style={{ background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.3)' }}
+        >
+          <CalendarDays size={18} style={{ color: 'rgb(251,146,60)', flexShrink: 0 }} />
+          <p className="text-sm font-medium" style={{ color: 'rgb(251,146,60)' }}>
+            {lang === 'es'
+              ? `${pendingCount} cuidado${pendingCount !== 1 ? 's' : ''} vencido${pendingCount !== 1 ? 's' : ''}`
+              : `${pendingCount} overdue care${pendingCount !== 1 ? 's' : ''}`}
+          </p>
+        </button>
+      )}
+
+      {/* Alerta de backup inteligente — pulso cuando nunca se hizo backup */}
+      {showBackupWarning && (
+        <button
+          onClick={() => { dismiss(); navigate('/settings/backup') }}
+          className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left${neverBacked ? ' animate-pulse' : ''}`}
+          style={{
+            background: neverBacked ? 'rgba(239,68,68,0.12)' : 'rgba(99,102,241,0.12)',
+            border: `1px solid ${neverBacked ? 'rgba(239,68,68,0.3)' : 'rgba(99,102,241,0.3)'}`,
+          }}
+        >
+          <HardDrive size={18} style={{ color: neverBacked ? '#ef4444' : 'rgb(129,140,248)', flexShrink: 0 }} />
+          <div>
+            <p className="text-sm font-bold" style={{ color: neverBacked ? '#ef4444' : 'rgb(129,140,248)' }}>
+              {backupWarningText().title}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text3)' }}>
+              {backupWarningText().subtitle}
+            </p>
+          </div>
+        </button>
+      )}
+    </StartupModal>
   )
 }

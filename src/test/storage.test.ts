@@ -478,6 +478,17 @@ describe('F033/F035 — cuidados masivos y detalles', () => {
     for (const row of data.recipients) expect(await svc.getCaresByBonsai(row.bonsaiId)).toEqual([])
     expect(await svc.getEventsByDateRange(0, Number.MAX_SAFE_INTEGER)).toEqual([])
   })
+  it('guarda solo producto en cada árbol y rechaza seguimientos vacíos sin escribir', async () => {
+    const data = await request()
+    await expect(svc.saveBulkCares({ ...data, followUpReminder: { ...data.followUpReminder, description: ' ' } })).rejects.toMatchObject({ code: 'invalid-data' })
+    await svc.saveBulkCares({ ...data, specificFields: { product: 'Solo producto' }, followUpReminder: undefined })
+    for (const row of data.recipients) {
+      const cares = await svc.getCaresByBonsai(row.bonsaiId)
+      expect(cares).toHaveLength(1); expect(cares[0].specificFields).toEqual({ product: 'Solo producto' })
+      expect(cares[0].followUpReminder).toBeUndefined()
+    }
+    expect(await svc.getEventsByDateRange(0, Number.MAX_SAFE_INTEGER)).toHaveLength(2)
+  })
   it('valida los destinatarios y detalles antes de escribir y permite repetir una intervención legítima', async () => {
     const data = await request()
     await expect(svc.saveBulkCares({ ...data, recipients: [...data.recipients, { bonsaiId: 'missing', treeCondition: 'good' }] })).rejects.toMatchObject({ code: 'missing-tree', target: 'missing' })

@@ -1,6 +1,6 @@
 # NiwaMirî — Especificación Funcional
 
-> **Aplicación de referencia:** 1.5.0 — Revisión documental: 2026-10-27
+> **Aplicación de referencia:** 1.6.0 — Revisión documental: 2026-10-28
 >
 > **Tipo de aplicación:** Progressive Web App (PWA)
 >
@@ -16,9 +16,11 @@
 
 ---
 
-Este documento conserva requisitos del diseño inicial y los contrasta con la implementación 1.5.0. Los apartados marcados **previsto** no describen funciones disponibles ni comprometen una nueva entrega. Las diferencias se documentan para orientar el mantenimiento; no se eliminan requisitos para dar por resuelto un bug.
+Este documento conserva requisitos del diseño inicial y los contrasta con la implementación 1.6.0. Los apartados marcados **previsto** no describen funciones disponibles ni comprometen una nueva entrega. Las diferencias se documentan para orientar el mantenimiento; no se eliminan requisitos para dar por resuelto un bug.
 
-**Cambios incluidos en v1.5.0:** B026 (historial completo) y F033–F035 (carga masiva, filtros y detalles por tipo) están incluidos en v1.5.0 y `en revisión`, pendientes de validación del usuario.
+**Cambios incluidos en v1.5.0:** B026 (historial completo) y F033–F035 (carga masiva, filtros y detalles por tipo) fueron probados y confirmados por el usuario el 2026-10-28; están en estado `resuelto`.
+
+**Cambios incluidos en v1.6.0:** B027–B029, M015 y F036–F038 están implementados y `en revisión`, pendientes de la prueba del usuario.
 
 El procedimiento de trabajo está en [DEVELOPMENT.md](DEVELOPMENT.md), la arquitectura vigente en [SPEC.md](SPEC.md) y el estado de validación de los cambios en [BACKLOG.md](BACKLOG.md). Tener un módulo implementado no implica que todos sus requisitos originales estén completos o confirmados por el usuario.
 
@@ -181,11 +183,26 @@ Al abrir la app en una sesión nueva (1 vez por sesión, no por día), se muestr
 - Aviso de backup si hay árboles y nunca se exportó, o si hay más de tres registros nuevos de cuidados/fotos/notas de clase desde el último backup
 - Auto-cierre a los 10 segundos, suspendido cuando hay alerta de backup; también permite cierre manual
 
+#### F038 — Modal de novedades por versión, previo a la bienvenida (implementado en v1.6.0, en revisión)
+
+Mostrar dos modales en secuencia cuando haya novedades pendientes: primero «Novedades de esta versión», con 3–5 bullets breves orientados al usuario; al pulsar «Continuar», cerrarlo y mostrar la bienvenida habitual de `WelcomeScreen`. Solo un modal está abierto a la vez.
+
+- Comparar la versión instalada con la última reconocida en ese dispositivo/navegador. Si son distintas, mostrar novedades; si aún no existe registro, mostrarlas una vez después del onboarding. Detectar la versión del código cargado, sin consultas remotas.
+- El modal de novedades no tiene auto-cierre. Únicamente al pulsar «Continuar» se guarda la versión como vista y se pasa a la bienvenida. Una recarga previa a esa acción no debe marcar las novedades como leídas.
+- La bienvenida posterior conserva su saludo, resumen, accesos a Calendario/Backup y reglas actuales. Su temporizador de 10 segundos comienza al mostrarse, y sigue suspendido cuando hay alerta de backup.
+- Si la versión no cambió, mostrar únicamente la bienvenida habitual, con su frecuencia actual de una vez por sesión. No repetir el modal de novedades.
+- Una actualización con novedades pendientes inicia la secuencia completa aunque la bienvenida ya se hubiera mostrado en esa sesión.
+- Si se omitieron versiones intermedias, presentar únicamente el resumen de la versión instalada. Los textos se preparan en español e inglés durante la publicación y requieren revisión y aprobación del usuario antes de publicar. Respetar literalmente el texto aprobado; el changelog sirve como referencia, sin extracción automática. No mostrar IDs internos, pruebas ni detalles técnicos. El texto en español de v1.6.0 fue proporcionado y aprobado por el usuario; su fuente está en `releaseNotes.bullets` de [es.json](../src/i18n/es.json).
+- El resumen se incluye en la aplicación y funciona offline. El registro de lectura es local al dispositivo y no forma parte del backup de la colección. Usar una única fuente de versión para el resumen y las versiones visibles de bienvenida/Ajustes.
+- Ambos utilizan `StartupModal`, extraído de la bienvenida, como estructura visual compartida: overlay, tarjeta, cabecera y botón, conservando sus tokens, tipografía, espaciados y formato. El contenido de cada paso permanece separado. Permitir desplazamiento en pantallas pequeñas para que el contenido y los botones sean accesibles.
+
+**Criterios cubiertos con pruebas de código (pendiente validación del usuario):** primera apertura sin registro, versión nueva y actualización dentro de la misma sesión muestran novedades y luego bienvenida; nunca se superponen; «Continuar» reconoce la versión y evita repeticiones; recargar sin continuar conserva el aviso; el temporizador de bienvenida comienza solo en su paso; omitir versiones muestra solo la actual; ambos idiomas y los accesos a Calendario/Backup mantienen su comportamiento. Cubrir estos casos mediante pruebas de código; la revisión visual corresponde al usuario.
+
 ---
 
 ### M2 — Inventario de Ejemplares
 
-Pantalla principal de la app. Muestra la colección completa en grilla de tarjetas.
+Pantalla principal de la app. Muestra la colección en grilla de tarjetas o lista; F037 (v1.6.0) oculta los fallecidos por defecto y permite mostrarlos desde filtros.
 
 #### Funcionalidades
 
@@ -198,6 +215,17 @@ Pantalla principal de la app. Muestra la colección completa en grilla de tarjet
 - Estación y chip de pendientes en el header compartido. El chip considera vencidos y próximos siete días
 - Indicador visual de árboles con cuidados pendientes: círculo naranja sobre la foto (top-left)
 - FAB (+) expandible: al tocar muestra dos opciones — **Nuevo bonsai** (abre el sheet de alta) e **Identificar con IA** (navega a M10). El ícono rota 45° al expandirse para indicar cierre
+
+#### F037 — Ocultar fallecidos por defecto (implementado en v1.6.0, en revisión)
+
+- En Mi Colección, excluir inicialmente solo los árboles con estado `dead`, tanto en grilla como en lista. Los demás estados mantienen su comportamiento actual.
+- Agregar el check **«Mostrar árboles fallecidos»** al panel de filtros avanzados existente, desmarcado al abrir la pantalla y al limpiar los filtros. Al marcarlo se permite incluir los fallecidos, combinando búsqueda, especies, etiquetas y los demás criterios habituales.
+- Conservar el filtro de estado para consultar exclusivamente fallecidos. Elegir ese estado activa también el check; desmarcar el check retira «Fallecido/Muerto» de los estados seleccionados para evitar una combinación contradictoria, conservando los demás estados.
+- El botón de filtros siempre abre el panel, incluso con filtros activos; mantiene el badge y la limpieza dentro del panel. Mostrar fallecidos cuenta dentro del grupo de estado/visibilidad, sin sumar dos veces por seleccionar también el estado fallecido.
+- Si existen árboles pero todos quedan ocultos, informar que no hay coincidencias y permitir abrir los filtros; no mostrar la colección como si no se hubieran registrado árboles.
+- Es un criterio de visualización de Mi Colección: se conservan los árboles y sus historiales, accesibles al mostrarlos. No filtrar globalmente el almacenamiento ni modificar el estado de los ejemplares.
+
+Se reutilizan el panel y las tarjetas actuales. CheckboxRow comparte el check existente de la selección masiva con los filtros de Mi Colección, manteniendo su diseño. Las pruebas de componentes cubren exclusión inicial, activar/desactivar, estado fallecido sincronizado, combinación de filtros, limpieza, cancelación, ambas vistas, traducción y colección con solo fallecidos. Pendiente prueba y confirmación del usuario en la aplicación.
 
 #### Datos del ejemplar
 
@@ -250,7 +278,7 @@ Vista detallada de un árbol, con seis secciones colapsables. El FAB (+) ofrece 
 
 Módulo central de la aplicación. Formulario con panel IA contextual integrado.
 
-**Estado:** B026 y F033–F035 están incluidos en v1.5.0 y `en revisión`. El usuario aprobó el diseño de F033–F035 el 2026-10-27; la aprobación del diseño no reemplaza la validación de la aplicación.
+**Estado:** B026 y F033–F035 están incluidos en v1.5.0 y en estado `resuelto`. El usuario aprobó el diseño el 2026-10-27 y confirmó las pruebas de la aplicación el 2026-10-28.
 
 #### Tipos de cuidados soportados
 
@@ -278,7 +306,7 @@ Al tocar "Sugerir con IA", se envía al modelo el tipo de cuidado, especie y est
 
 Al expandir el panel, y si hay clave configurada, se solicita un resumen de las notas de clase de la especie y del ejemplar, unidas sin duplicados y con las del ejemplar primero. No bloquea el formulario.
 
-**Previsto:** incorporar al resumen intervenciones del mismo tipo, contexto estacional adicional y notas de bitácora por etiqueta. La sugerencia de recordatorio ya usa contexto de árbol, cuidados recientes y estación.
+**Previsto:** incorporar al resumen intervenciones del mismo tipo, contexto estacional adicional y notas de bitácora por etiqueta. La sugerencia de recordatorio usa los datos del cuidado, la especie, la condición del árbol y la estación. Enriquecer el prompt con cuidados recientes o notas sigue previsto.
 
 #### Historial de cuidados
 
@@ -300,15 +328,15 @@ Registrar una misma intervención en varios árboles sin repetir el formulario, 
 
 | Ítem | Funcionalidad | Estado de producto |
 |---|---|---|
-| F033 | Registrar cuidados en varios árboles | Implementado, en revisión |
-| F034 | Filtros del historial de cuidados | Implementado, en revisión |
-| F035 | Características específicas por tipo | Implementado para los 14 tipos, en revisión |
+| F033 | Registrar cuidados en varios árboles | Implementado y validado |
+| F034 | Filtros del historial de cuidados | Implementado y validado |
+| F035 | Características específicas por tipo | Implementado y validado para los 14 tipos |
 
 **Decisión del usuario:** en una carga masiva se puede asignar el mismo estado y observaciones a todos los árboles o elegirlos por árbol. El diseño completo fue aprobado antes de implementar.
 
 Se mantienen los 14 tipos de cuidado actuales. Esta ampliación no reactiva F023, que fue descartado y trataba de tipos nuevos agrupados en subcategorías.
 
-#### F033 — Cuidados masivos (implementado, en revisión)
+#### F033 — Cuidados masivos (implementado y validado)
 
 ##### Entrada y navegación
 
@@ -339,7 +367,7 @@ Datos comunes de la carga:
 | Fecha | Una fecha local, precargada con hoy y editable |
 | Detalles del tipo | Mismo producto, dosis, método, calibres u otros detalles para todos |
 | Estado y observaciones | Modo «Iguales para todos» o «Por árbol», según lo elegido |
-| Seguimiento | Recordatorio manual común opcional; si se usa, cada cuidado tendrá su evento vinculado |
+| Seguimiento | Recordatorio común opcional, manual o con sugerencia de IA a pedido (F036, v1.6.0); cada cuidado tiene su evento vinculado al guardar |
 
 El estado registrado es la condición del árbol en el cuidado (Bien/Regular/Problemático), no el estado del inventario (En desarrollo/Mantenimiento/etc.). No modificar automáticamente el estado del inventario.
 
@@ -356,7 +384,7 @@ Mostrar una condición y un texto de observaciones. Aplicarlos a todos los selec
 - Si se vuelve al modo común y hay diferencias, confirmar antes de reemplazar los ajustes individuales. Mantenerlos mientras no se confirme.
 - Conservar el trabajo al plegar una tarjeta, cambiar de paso o ajustar la selección. Un árbol agregado más tarde toma los valores comunes disponibles y queda pendiente si aún no tiene condición.
 
-En el primer alcance, las fotos se agregan después desde cada árbol/cuidado; no se duplican adjuntos en todos los ejemplares. La carga masiva usa seguimiento manual y no dispara consultas de IA por cada árbol.
+En el primer alcance, las fotos se agregan después desde cada árbol/cuidado; no se duplican adjuntos en todos los ejemplares. La carga masiva admite seguimiento manual y, con F036 en v1.6.0, una sugerencia común de IA a pedido. No dispara consultas automáticas por cada árbol.
 
 ##### Paso 3: revisar y guardar
 
@@ -374,7 +402,7 @@ La acción final indica el alcance: **«Guardar en N árboles»**. Hasta ese mom
 - Volver a validar que existan los destinatarios y los datos requeridos al guardar. Un error identifica qué hay que corregir antes de escribir.
 - No crear una tabla de lotes ni un catálogo de productos para este primer alcance: cada cuidado conserva una copia de sus datos.
 
-#### F034 — Filtros del historial (implementado, en revisión)
+#### F034 — Filtros del historial (implementado y validado)
 
 Aplicar en la pantalla **Cuidados de un árbol**, sobre el historial completo y junto al buscador que ya existe. Mantener el patrón del Inventario: botón de filtros, sheet inferior, badge, chips activos removibles y acción de limpieza.
 
@@ -397,7 +425,7 @@ Aplicar en la pantalla **Cuidados de un árbol**, sobre el historial completo y 
 
 Los filtros por producto específico o por origen masivo pueden evaluarse después. El buscador permite localizar productos sin agregar un catálogo ni más controles.
 
-#### F035 — Detalles por tipo de cuidado (implementado, en revisión)
+#### F035 — Detalles por tipo de cuidado (implementado y validado)
 
 ##### Presentación y captura
 
@@ -426,7 +454,7 @@ La sección se utiliza tanto en cuidados individuales como masivos. En el histor
 | Observación | Zona observada y síntoma/evolución a seguir | Textos opcionales, manteniendo las observaciones comunes |
 | Otro | Nombre de la intervención y detalles libres | Texto opcional, sin crear un tipo nuevo automáticamente |
 
-Los controles registran lo realizado; no calculan ni recomiendan dosis o calibres. En fertilización/tratamientos, unidades iniciales como ml/L, g/L, ml/árbol y g/árbol distinguen concentración de cantidad aplicada. El campo de unidad ofrece sugerencias y permite escribir cualquier otra unidad. La cantidad aplicada por árbol es un dato separado de la dosis de preparación; no multiplicar ni convertir automáticamente.
+Los controles registran lo realizado; no calculan ni recomiendan dosis o calibres. En fertilización/tratamientos, unidades iniciales como ml/L, g/L, ml/árbol y g/árbol distinguen concentración de cantidad aplicada. El selector de unidad ofrece opciones explícitas y «Otra unidad» para escribir una personalizada (B028, v1.6.0). La dosis es opcional: se puede guardar solo el producto; al ingresar dosis, su unidad es obligatoria. La cantidad aplicada por árbol es un dato separado y opcional, desplegable para una concentración; los datos anteriores se recuperan al editar. No multiplicar ni convertir automáticamente.
 
 En Alambrado, se admite más de un calibre porque un mismo cuidado puede intervenir varias zonas. Los valores son ingresados por el usuario, sin limitarse a un listado fijo de medidas.
 
@@ -447,6 +475,19 @@ La fecha de revisión/retiro reutiliza el recordatorio de seguimiento existente 
 - Mantener campos desconocidos de un backup cuando el tipo no cambie, aunque esta versión no pueda editarlos.
 - Registrar una reubicación no cambia automáticamente la ubicación habitual del inventario.
 
+#### Ajustes del 2026-10-28 — implementados, en revisión (v1.6.0)
+
+La validación de B026 y F029–F035 se conserva como historial. Los siguientes ajustes se registran por separado en B027–B029, M015 y F036. La solución fue aprobada e incluida en v1.6.0; estos nuevos ítems quedan `en revisión` y no reabren los ítems validados.
+
+- **Navegación (B027):** al avanzar o volver entre pasos de la carga masiva, mostrar el inicio del paso. Al entrar a completar, el selector de tipo debe quedar visible debajo del encabezado, sin foco automático que desplace hacia campos inferiores. Conservar selección y borrador.
+- **Tarjetas y títulos (M015):** tomar como referencia el recordatorio individual: tarjeta redondeada con borde, título interior en mayúsculas, tamaño y peso actuales, color secundario, espaciado uniforme. Extraer esa presentación compartida para Detalles y Recordatorio; mantener la agrupación accesible sin usar el texto de legend como título visual sobre el borde.
+- **Dosis y cantidades (M015):** en Fertilización, mostrar juntos el valor de dosis y su selector de unidad, sin etiquetas «Unidad» repetidas que parezcan pedir el mismo dato. Mantener un único renglón «Dosis de producto» con valor y selector de unidad; el texto de ayuda distingue preparación (ml/L, g/L) de aplicación directa (ml/árbol, g/árbol). Permitir «Otra unidad» y conservar valores históricos. La cantidad realmente aplicada es un dato distinto: ofrecer «Agregar cantidad de preparado aplicada por árbol (opcional)» cuando la dosis sea una concentración, y mostrar su valor/unidad solo al activarlo. Si un registro anterior ya contiene cantidad aplicada, mostrarla y conservarla siempre al editar, aunque utilice otra unidad. Explicar la diferencia sin convertir ni calcular cantidades automáticamente. Revisar el mismo patrón en Tratamiento de plagas y en todos los campos con unidades de los 14 tipos.
+- **Unidades visibles (B028):** usar el selector existente del proyecto, con opciones explícitas y «Otra unidad» que habilita texto. La elección debe poder abrirse sin escribir. Conservar las unidades libres de registros antiguos y el autocompletado de productos como función distinta.
+- **Recordatorio compartido (B029/M015):** una única implementación para cuidados individuales y masivos, con el diseño del recordatorio individual. Fecha a ancho y altura estables tanto vacía como completa; el botón de IA puede pasar a otra fila en pantallas pequeñas. Agregar «Quitar recordatorio» cuando haya fecha o descripción: limpia ambos valores y deja guardar el cuidado sin seguimiento. Conservar el resto del borrador. Si se intenta guardar un recordatorio incompleto, mostrar qué falta sin crear eventos vacíos; quitar uno existente al editar elimina el seguimiento pendiente conforme a las reglas vigentes.
+- **Sugerencia de IA (F036):** incluir el mismo botón, estados de carga, disponibilidad según la clave configurada y error visible en ambos flujos. En masivo, solicitar una sugerencia común para el conjunto seleccionado mediante una consulta explícita, considerando especies, tipo/fecha/detalles del cuidado y condiciones/observaciones registradas. No usar silenciosamente el primer árbol como si representara a todos. Mostrar la propuesta como editable y su alcance de N árboles antes de guardar. Solicitar la sugerencia no guarda eventos. Si falla o se descarta, conservar los datos anteriores; no consultar automáticamente por cada destinatario. Esto amplía el seguimiento exclusivamente manual de la versión publicada v1.5.0.
+
+Criterios cubiertos por pruebas de código: posición y foco al cambiar de paso; mismos componentes/títulos en ambos flujos; unidades seleccionables sin escritura y compatibilidad de unidades personalizadas; recuperación de dosis/cantidad previa al editar; fecha vacía con dimensiones declaradas; limpieza completa del recordatorio y eliminación del pendiente al editar; bloqueo del guardado incompleto; sugerencia masiva con una consulta y contexto del conjunto; fallos y respuestas tardías de IA sin sobrescribir cambios recientes o restaurar un recordatorio quitado. Las pruebas usando la aplicación las realiza el usuario.
+
 #### Entregas y verificación
 
 Se implementaron las cuatro etapas del diseño aprobado:
@@ -456,7 +497,7 @@ Se implementaron las cuatro etapas del diseño aprobado:
 3. Filtros del historial (F034; puede implementarse independientemente).
 4. Completar el catálogo de los demás tipos (resto de F035).
 
-F035 incluye los 14 tipos acordados. F033, F034 y F035 quedan `en revisión` hasta la confirmación del usuario.
+F035 incluye los 14 tipos acordados. F033, F034 y F035 están en estado `resuelto`, tras la confirmación del usuario el 2026-10-28.
 
 ##### Pruebas de código
 
@@ -469,7 +510,7 @@ F035 incluye los 14 tipos acordados. F033, F034 y F035 quedan `en revisión` has
 - Backups con y sin detalles, y conservación de datos desconocidos compatibles.
 - Tests unitarios/integración, TypeScript, lint y build; sin navegador, automatización de la app ni pruebas manuales del agente.
 
-Las pruebas de código cubren selección y borradores, ambos modos, guardado transaccional y rollback, edición, filtros y compatibilidad de backups. Las pruebas usando la aplicación las realiza el usuario durante el estado `en revisión`.
+Las pruebas de código cubren selección y borradores, ambos modos, guardado transaccional y rollback, edición, filtros y compatibilidad de backups. El usuario confirmó las pruebas usando la aplicación el 2026-10-28.
 
 Las decisiones técnicas para estas funcionalidades se documentan en [SPEC.md](SPEC.md#cuidados-masivos-filtros-y-detalles-f033f035).
 
@@ -1027,4 +1068,4 @@ Otras funciones del diseño aún previstas: push, planificación automática de 
 
 ---
 
-*FUNCTIONAL_SPEC.md — Referencia de aplicación 1.5.0, revisión documental 2026-10-27. Actualizar al cambiar el comportamiento o tomar decisiones nuevas.*
+*FUNCTIONAL_SPEC.md — Referencia de aplicación 1.6.0, revisión documental 2026-10-28. Actualizar al cambiar el comportamiento o tomar decisiones nuevas.*
